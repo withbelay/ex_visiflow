@@ -65,35 +65,40 @@ defmodule ExVisiflow do
         end
       end
 
+      def run_continue(message, %{step_index: step_index} = state) do
+        step = Enum.at(unquote(steps), step_index)
+
+        case apply(step, :run_handle_info, [message, state]) do
+          {:ok, state} ->
+            Logger.info("Succeeded with: #{step}", label: __MODULE__)
+            state = %{state | step_index: step_index + 1, step_result: :ok}
+            {:ok, state}
+
+          {:continue, state} ->
+            Logger.info("Pausing with: #{step}", label: __MODULE__)
+            state = %{state | step_result: :continue}
+            {:continue, state}
+
+          {error, state} ->
+            Logger.info("Failed with: #{step}", label: __MODULE__)
+            state = %{state | step_result: error}
+            {error, state}
+        end
+      end
+
       def handle_info(:kill_it_with_fire, state) do
         {:stop, :kill_it_with_fire, state}
       end
 
       # This is a combination of the handle_continue and the run funcs right now. It can't be universal because
       def handle_info(message, %{step_index: step_index} = state) do
-        step = Enum.at(unquote(steps), step_index)
-
-        # This is basically the same as the other stuff, except that it will match on the message, not on the state. The state will come in as well.
-        # I need to get the macro to import or whatever the handle_ funcs though.
-
-        case apply(step, :run_handle_info, [message, state]) do
+        case run_continue(message, state) do
           {:ok, state} ->
-            Logger.info("Succeeded with: #{step}", label: __MODULE__)
-            state = %{state | step_index: step_index + 1, step_result: :ok}
-            # {:ok, state}
             {:noreply, state, {:continue, :run}}
-
           {:continue, state} ->
-            Logger.info("Pausing with: #{step}", label: __MODULE__)
-            state = %{state | step_result: :continue}
             {:noreply, state}
-
-          # {:continue, state}
           {error, state} ->
-            Logger.info("Failed with: #{step}", label: __MODULE__)
-            state = %{state | step_result: error}
             {:stop, error, state}
-            # {error, state}
         end
       end
 
