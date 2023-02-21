@@ -19,7 +19,6 @@ defmodule ExVisiflow do
       def get_state(pid), do: GenServer.call(pid, :get_state)
 
       def handle_continue(:run, state) do
-        # This needs to process a single step at a time, before deferring to other processes
         case run(state) do
           {:ok, state} ->
             {:noreply, state, {:continue, :run}}
@@ -48,7 +47,7 @@ defmodule ExVisiflow do
               {:ok, state} ->
                 Logger.info("Succeeded with: #{step}", label: __MODULE__)
                 state = %{state | step_index: step_index + 1, step_result: :ok}
-                # THIS IS ACTUALLY BAD, BECAUSE MESSAGES ARE NOT ALLOWED TO INTERJECT
+
                 {:ok, state}
 
               # run(state)
@@ -86,8 +85,8 @@ defmodule ExVisiflow do
         end
       end
 
-      def handle_info(:kill_it_with_fire, state) do
-        {:stop, :kill_it_with_fire, state}
+      def handle_info(:rollback, state) do
+        {:stop, :rollback, state}
       end
 
       # This is a combination of the handle_continue and the run funcs right now. It can't be universal because

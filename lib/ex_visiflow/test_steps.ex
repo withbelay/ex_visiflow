@@ -20,14 +20,28 @@ defmodule ExVisiflow.TestSteps do
   ])
 
   @spec run_step(ExVisiflow.TestSteps.t(), any, any) :: {atom(), ExVisiflow.TestSteps.t()}
-  def run_step(%TestSteps{} = state, step, step_result) do
-    state = state
-    |> Map.put(:step_result, step_result)
-    |> Map.update(:steps_run, Map.put(%{}, step, 1), fn current ->
-      Map.update(current, step, 1, &(&1 + 1))
+  def run_step(%TestSteps{} = state, step_module, step_func, step_result) do
+    full_step = {step_module, step_func}
+    # full_step = "#{step_module}.#{step_func}"
+    state = %{state | step_result: step_result}
+    |> Map.update(:steps_run, Map.put(%{}, full_step, 1), fn current ->
+      Map.update(current, full_step, 1, &(&1 + 1))
     end)
-    |> Map.update(:execution_order, [step], fn current -> current ++ List.wrap(step) end)
+    |> Map.update(:execution_order, [full_step], fn current -> current ++ List.wrap(full_step) end)
     {step_result, state}
+  end
+
+
+  @spec run_step(ExVisiflow.TestSteps.t(), any, any) :: {atom(), ExVisiflow.TestSteps.t()}
+  def run_step(%TestSteps{} = state, step, step_result) do
+    run_step(state, step, :run, step_result)
+    # state = state
+    # |> Map.put(:step_result, step_result)
+    # |> Map.update(:steps_run, Map.put(%{}, step, 1), fn current ->
+    #   Map.update(current, step, 1, &(&1 + 1))
+    # end)
+    # |> Map.update(:execution_order, [step], fn current -> current ++ List.wrap(step) end)
+    # {step_result, state}
   end
 
 end
@@ -40,6 +54,8 @@ end
 defmodule ExVisiflow.StepOk2 do
   alias ExVisiflow.TestSteps
   def run(%TestSteps{} = state), do: TestSteps.run_step(state, __MODULE__, :ok)
+
+  def rollback(%TestSteps{} = state), do: TestSteps.run_step(state, __MODULE__, :ok)
 end
 defmodule ExVisiflow.StepError do
   alias ExVisiflow.TestSteps
@@ -51,7 +67,7 @@ defmodule ExVisiflow.AsyncStepOk do
   def run(%TestSteps{} = state), do: TestSteps.run_step(state, __MODULE__, :continue)
 
   def run_handle_info(ExVisiflow.AsyncStepOk, state) do
-    TestSteps.run_step(state, __MODULE__, :ok)
+    TestSteps.run_step(state, __MODULE__, :run_handle_info, :ok)
   end
 
 end
