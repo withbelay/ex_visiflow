@@ -2,6 +2,11 @@
 
 **TODO: Add description**
 
+- [ ] Remove the application.ex
+- [ ] Add wrappers
+- [x] Add step macros
+
+
 ## Installation
 
 If [available in Hex](https://hex.pm/docs/publish), the package can be installed

@@ -46,6 +46,7 @@ end
 defmodule ExVisiflow.StepOk do
   alias ExVisiflow.TestSteps
   def run(%TestSteps{} = state), do: TestSteps.run_step(state, __MODULE__, :run, :ok)
+  def rollback(%TestSteps{} = state), do: TestSteps.run_step(state, __MODULE__, :rollback, :ok)
 end
 
 defmodule ExVisiflow.StepOk2 do
@@ -80,6 +81,17 @@ defmodule ExVisiflow.AsyncStepOk2 do
 
   def run_handle_info(ExVisiflow.AsyncStepOk2, state) do
     TestSteps.run_step(state, __MODULE__, :run_handle_info, :ok)
+  end
+
+  def rollback(%TestSteps{} = state), do: TestSteps.run_step(state, __MODULE__, :rollback, :ok)
+end
+
+defmodule ExVisiflow.AsyncStepError do
+  alias ExVisiflow.TestSteps
+  def run(%TestSteps{} = state), do: TestSteps.run_step(state, __MODULE__, :run, :continue)
+
+  def run_handle_info(ExVisiflow.AsyncStepError, state) do
+    TestSteps.run_step(state, __MODULE__, :run_handle_info, :error)
   end
 
   def rollback(%TestSteps{} = state), do: TestSteps.run_step(state, __MODULE__, :rollback, :ok)

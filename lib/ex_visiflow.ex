@@ -22,9 +22,15 @@ defmodule ExVisiflow do
         execute_func(state) |> map_response()
       end
 
-      def handle_info(:rollback, state) do
+      def handle_info({:rollback, reason}, state) do
         # Todo: This is wrong - it needs to update the state to rollback, and then :continue, :run
-        {:stop, :rollback, state}
+        state = state
+        |> Map.put(:step_result, reason)
+        |> maybe_save_ultimate_flow_error(reason)
+        |> select_next_step()
+        |> select_next_func()
+
+        {:noreply, state, {:continue, :run}}
       end
 
       def handle_info(message, %{step_index: step_index} = state) do
