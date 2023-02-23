@@ -4,7 +4,9 @@
 
 - [x] Remove the application.ex
 - [ ] Add wrappers
+- [ ] Add finalizer
 - [x] Add step macros
+- [x] Add state type
 
 
 ## Installation

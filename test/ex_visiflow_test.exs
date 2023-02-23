@@ -11,7 +11,7 @@ defmodule ExVisiflowTest do
     {:ok, %{test_steps: TestSteps.new()}}
   end
   defmodule JustStart do
-    use ExVisiflow, steps: []
+    use ExVisiflow, steps: [], state_type: ExVisiflow.TestSteps
   end
 
   describe "select_next_func\1" do
@@ -49,7 +49,7 @@ defmodule ExVisiflowTest do
 
   describe "a synchronous, successful workflow with no wrapper steps or finalizer" do
     defmodule SyncSuccess do
-      use ExVisiflow, steps: [ExVisiflow.StepOk, ExVisiflow.StepOk2]
+      use ExVisiflow, steps: [ExVisiflow.StepOk, ExVisiflow.StepOk2], state_type: ExVisiflow.TestSteps
     end
 
     test "the workflow runs a step, and returns the outcome", %{test_steps: test_steps} do
@@ -78,7 +78,7 @@ defmodule ExVisiflowTest do
 
   describe "a synchronous, failing workflow with no wrapper steps or finalizer" do
     defmodule SyncFailure do
-      use ExVisiflow, steps: [ExVisiflow.StepOk, ExVisiflow.StepError]
+      use ExVisiflow, steps: [ExVisiflow.StepOk, ExVisiflow.StepError], state_type: ExVisiflow.TestSteps
     end
 
     test "the workflow fails the first step", %{test_steps: test_steps} do
@@ -106,11 +106,10 @@ defmodule ExVisiflowTest do
 
   describe "an async, succeeding workflow with no wrapper steps or finalizer" do
     defmodule AsyncSuccess do
-      use ExVisiflow,
-        steps: [
+      use ExVisiflow, steps: [
           ExVisiflow.StepOk,
           ExVisiflow.AsyncStepOk
-        ]
+        ], state_type: ExVisiflow.TestSteps
     end
 
     test "the workflow runs, pauses, and then succeeds when the message is received", %{test_steps: test_steps} do
@@ -146,7 +145,8 @@ defmodule ExVisiflowTest do
           ExVisiflow.StepOk,
           ExVisiflow.AsyncStepOk,
           ExVisiflow.AsyncStepError,
-        ]
+        ],
+        state_type: ExVisiflow.TestSteps
     end
 
     test "the workflow runs, pauses, receives a cancel message, and reverses direction", %{test_steps: test_steps} do
