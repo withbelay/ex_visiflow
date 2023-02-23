@@ -17,7 +17,8 @@ defmodule ExVisiflow.FieldsTest do
       step_index: 0,
       flow_direction: :up,
       func: :run,
-      step_result: nil
+      step_result: nil,
+      flow_error_reason: :normal,
     }} == TestFields.new(%{})
 
   end

@@ -34,14 +34,16 @@ defmodule ExVisiflow do
       def execute_func(state, message \\ nil) do
         case get_step(state) do
           nil ->
-            {:stop, :normal, state}
+            {:stop, Map.get(state, :flow_error_reason, :normal), state}
 
           step ->
+            # Logger.info("Running: #{step}.#{state.func}")
             {result, state} = case is_nil(message) do
               true -> apply(step, state.func, [state])
               false -> apply(step, state.func, [message, state])
             end
             state = %{state | step_result: result }
+            |> maybe_save_ultimate_flow_error(result)
             |> select_next_step()
             |> select_next_func()
 
@@ -68,21 +70,25 @@ defmodule ExVisiflow do
       def select_next_func(%{step_result: :continue, flow_direction: :down} = state), do: %{state | func: :rollback_handle_info}
       def select_next_func(state), do: %{state | func: :rollback} # any other result is an error
 
+      defp maybe_save_ultimate_flow_error(%{flow_direction: :up} = state, result) when result not in ~w(ok continue)a do
+        %{state | flow_error_reason: result}
+      end
+      defp maybe_save_ultimate_flow_error(state, _reason), do: state
+
+      defp get_step(%{step_index: step_index}) when step_index < 0, do: nil
       defp get_step(%{step_index: step_index}), do: Enum.at(unquote(steps), step_index)
 
       defp map_response(execution_response) do
         case execution_response do
-          {:ok, state} ->
-            {:noreply, state, {:continue, :run}}
-
           {:continue, state} ->
             {:noreply, state}
 
           {:stop, reason, state} ->
             {:stop, reason, state}
 
-          {error, state} ->
-            {:stop, error, state}
+          {result, state} ->
+            # the result's impact is already reflected in the state
+            {:noreply, state, {:continue, :run}}
         end
       end
     end

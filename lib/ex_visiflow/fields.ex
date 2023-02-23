@@ -14,6 +14,7 @@ defmodule ExVisiflow.Fields do
       field(:flow_direction, ExVisiflow.Atom, default: :up)
       field(:func, ExVisiflow.Atom, default: :run)
       field(:step_result, ExVisiflow.Atom, default: nil)
+      field(:flow_error_reason, ExVisiflow.Atom, default: :normal)
       # field(:workflow_error, ExVisiflow.Atom, default: nil)
       # field(:step_wrapper, ExVisiflow.Atom, default: nil)
     end

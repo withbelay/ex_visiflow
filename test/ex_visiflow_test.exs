@@ -61,7 +61,7 @@ defmodule ExVisiflowTest do
       assert state.steps_run[{ExVisiflow.StepOk2, :run}] == 1
       assert state.execution_order == [{ExVisiflow.StepOk, :run}, {ExVisiflow.StepOk2, :run}]
 
-      assert {:stop, :normal, state} = SyncSuccess.execute_func(state)
+      assert {:stop, :normal , state} == SyncSuccess.execute_func(state)
     end
 
     test "the GenServer workflow runs to completion and stops", %{test_steps: test_steps} do
@@ -78,7 +78,7 @@ defmodule ExVisiflowTest do
 
   describe "a synchronous, failing workflow with no wrapper steps or finalizer" do
     defmodule SyncFailure do
-      use ExVisiflow, steps: [ExVisiflow.StepError, ExVisiflow.StepOk2]
+      use ExVisiflow, steps: [ExVisiflow.StepError]
     end
 
     test "the workflow fails the first step", %{test_steps: test_steps} do
@@ -86,13 +86,19 @@ defmodule ExVisiflowTest do
       assert state.steps_run[{ExVisiflow.StepError, :run}] == 1
       assert state.step_result == :error
       assert state.step_index == 0
+      assert state.flow_direction == :down
     end
 
     test "the workflow rollsback", %{test_steps: test_steps} do
       assert {:ok, pid} = SyncFailure.start_link(test_steps)
       # completed normally because rollback succeeded
       assert_receive {:EXIT, ^pid, :error}
-      state = StateAgent.get(test_steps.agent)
+      flow_state = StateAgent.get(test_steps.agent)
+      assert flow_state.execution_order == [
+        {ExVisiflow.StepError, :run},
+        {ExVisiflow.StepError, :rollback},
+      ]
+      # assert state.step_index == 0
       # rollback not implemented yet
       # fail "rollback not implemented yet"
       # assert state.workflow_error == :error
@@ -140,21 +146,12 @@ defmodule ExVisiflowTest do
       # completed normally as expected
       assert_receive {:EXIT, ^pid, :normal}
 
-      steps_run = Map.merge(steps_run, %{
-          {ExVisiflow.AsyncStepOk, :run_handle_info} => 1
-        })
-
-      stage2_state =
-        stage1_state
-        |> Map.put(:steps_run, steps_run)
-        |> Map.replace_lazy(:execution_order, fn exec_order ->
-          exec_order ++ [{ExVisiflow.AsyncStepOk, :run_handle_info}]
-        end)
-        |> Map.put(:step_index, 1)
-        |> Map.put(:step_result, :ok)
-        |> Map.put(:func, :run_handle_info)
-
-      assert_eventually(stage2_state == StateAgent.get(test_steps.agent))
+      flow_state = StateAgent.get(test_steps.agent)
+      assert flow_state.execution_order == [
+        {ExVisiflow.StepOk, :run},
+        {ExVisiflow.AsyncStepOk, :run},
+        {ExVisiflow.AsyncStepOk, :run_handle_info}
+      ]
     end
   end
   describe "Failing synchronous workflow rolls back automatically" do
