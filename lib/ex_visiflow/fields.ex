@@ -12,10 +12,12 @@ defmodule ExVisiflow.Fields do
     quote location: :keep do
       field(:step_index, :integer, default: 0)
       field(:flow_direction, ExVisiflow.Atom, default: :up)
-      field(:func, ExVisiflow.Atom, default: :run)
+      field(:step_mod, ExVisiflow.Atom, default: nil)
+      field(:step_func, ExVisiflow.Atom, default: :run)
       field(:step_result, ExVisiflow.Atom, default: nil)
       field(:flow_error_reason, ExVisiflow.Atom, default: :normal)
-      # field(:step_wrapper, ExVisiflow.Atom, default: nil)
+      field(:wrapper_mod, ExVisiflow.Atom, default: nil)
+      field(:wrapper_func, ExVisiflow.Atom, default: nil)
     end
   end
 end

@@ -25,6 +25,10 @@ defmodule ExVisiflow.TestSteps do
     ]
   )
 
+  def run_wrapper(%TestSteps{} = state, step_module, step_func, step_result) do
+    run_step(state, step_module, step_func, step_result)
+  end
+
   @spec run_step(ExVisiflow.TestSteps.t(), atom(), atom(), atom()) :: {atom(), ExVisiflow.TestSteps.t()}
   def run_step(%TestSteps{} = state, step_module, step_func, step_result) do
     # NOTE - DO NOT CHANGE VALUES VISIFLOW OWNS - It must do that
@@ -97,31 +101,24 @@ defmodule ExVisiflow.AsyncStepError do
   def rollback(%TestSteps{} = state), do: TestSteps.run_step(state, __MODULE__, :rollback, :ok)
 end
 
-# defmodule ExVisiflow.StepError do
-#   alias ExVisiflow.TestSteps
-#   def run(%TestSteps{} = state) do
+defmodule ExVisiflow.WrapperOk do
+  alias ExVisiflow.TestSteps
+  def pre(%TestSteps{} = state) do
+    TestSteps.run_wrapper(state, __MODULE__, :pre, :ok)
+  end
 
-#     {:error, Map.put(state, __MODULE__, true)}
-#   end
-# end
+  def post(%TestSteps{} = state) do
+    TestSteps.run_wrapper(state, __MODULE__, :post, :ok)
+  end
+end
 
-# defmodule ExVisiflow.StepContinueOk do
-#   require Logger
-#   # :ok, :error, :continue
-#   @spec run(term) :: {[:ok | :continue | atom()], term}
-#   def run(state) do
-#     {:continue, state}
-#   end
+defmodule ExVisiflow.WrapperOk2 do
+  alias ExVisiflow.TestSteps
+  def pre(%TestSteps{} = state) do
+    TestSteps.run_wrapper(state, __MODULE__, :pre, :ok)
+  end
 
-#   def run_handle_info(:step_continue_ok_message, state) do
-#     Logger.info("#{__MODULE__} run continue")
-#     {:ok, Map.put(state, __MODULE__, true)}
-#   end
-
-#   def rollback(state) do
-
-#   end
-#   def rollback_handle_info(state) do
-
-#   end
-# end
+  def post(%TestSteps{} = state) do
+    TestSteps.run_wrapper(state, __MODULE__, :post, :ok)
+  end
+end

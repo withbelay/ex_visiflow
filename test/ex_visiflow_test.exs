@@ -10,34 +10,34 @@ defmodule ExVisiflowTest do
     Process.flag(:trap_exit, true)
     {:ok, %{test_steps: TestSteps.new()}}
   end
+
   defmodule JustStart do
     use ExVisiflow, steps: [], state_type: ExVisiflow.TestSteps
   end
 
-  describe "select_next_func\1" do
+  describe "select_step\1" do
     test "when run result is :ok" do
       state = TestSteps.new!(%{step_result: :ok, flow_direction: :up})
-      assert JustStart.select_next_func(state).func == :run
+      assert JustStart.select_step(state).step_func == :run
     end
 
     test "when run result is continue" do
       state = TestSteps.new!(%{step_result: :continue, flow_direction: :up})
-      assert JustStart.select_next_func(state).func == :run_handle_info
+      assert JustStart.select_step(state).step_func == :run_handle_info
     end
 
     test "when rollback result is :ok" do
       state = TestSteps.new!(%{step_result: :ok, flow_direction: :down})
-      assert JustStart.select_next_func(state).func == :rollback
+      assert JustStart.select_step(state).step_func == :rollback
     end
 
     test "when rollback result is continue" do
       state = TestSteps.new!(%{step_result: :continue, flow_direction: :down})
-      assert JustStart.select_next_func(state).func == :rollback_handle_info
+      assert JustStart.select_step(state).step_func == :rollback_handle_info
     end
   end
 
   describe "when init-ing a workflow" do
-
     test "will continue to the workflow", %{test_steps: test_steps} do
       assert {:ok, test_steps, {:continue, :run}} == JustStart.init(test_steps)
     end
@@ -53,25 +53,28 @@ defmodule ExVisiflowTest do
     end
 
     test "the workflow runs a step, and returns the outcome", %{test_steps: test_steps} do
-      assert {:ok, state} = SyncSuccess.execute_func(test_steps)
+      {:ok, test_steps, _} = SyncSuccess.init(test_steps)
+      assert {:ok, state} = SyncSuccess.execute_step(test_steps)
       assert state.steps_run[{ExVisiflow.StepOk, :run}] == 1
       assert state.execution_order == [{ExVisiflow.StepOk, :run}]
 
-      assert {:ok, state} = SyncSuccess.execute_func(state)
+      assert {:ok, state} = SyncSuccess.execute_step(state)
       assert state.steps_run[{ExVisiflow.StepOk2, :run}] == 1
       assert state.execution_order == [{ExVisiflow.StepOk, :run}, {ExVisiflow.StepOk2, :run}]
 
-      assert {:stop, :normal , state} == SyncSuccess.execute_func(state)
+      assert {:stop, :normal, state} == SyncSuccess.execute_step(state)
     end
 
     test "the GenServer workflow runs to completion and stops", %{test_steps: test_steps} do
       assert {:ok, pid} = SyncSuccess.start_link(test_steps)
       assert_receive {:EXIT, ^pid, :normal}
       final_state = StateAgent.get(test_steps.agent)
+
       assert final_state.steps_run == %{
-          {ExVisiflow.StepOk, :run} => 1,
-          {ExVisiflow.StepOk2, :run} => 1
-        }
+               {ExVisiflow.StepOk, :run} => 1,
+               {ExVisiflow.StepOk2, :run} => 1
+             }
+
       assert final_state.execution_order == [{ExVisiflow.StepOk, :run}, {ExVisiflow.StepOk2, :run}]
     end
   end
@@ -82,8 +85,9 @@ defmodule ExVisiflowTest do
     end
 
     test "the workflow fails the first step", %{test_steps: test_steps} do
-      assert {:ok, state} = SyncFailure.execute_func(test_steps)
-      assert {:error, state} = SyncFailure.execute_func(state)
+      {:ok, test_steps, _} = SyncFailure.init(test_steps)
+      assert {:ok, state} = SyncFailure.execute_step(test_steps)
+      assert {:error, state} = SyncFailure.execute_step(state)
       assert state.steps_run[{ExVisiflow.StepError, :run}] == 1
       assert state.step_result == :error
       assert state.step_index == 1
@@ -95,21 +99,24 @@ defmodule ExVisiflowTest do
       # completed normally because rollback succeeded
       assert_receive {:EXIT, ^pid, :error}
       flow_state = StateAgent.get(test_steps.agent)
+
       assert flow_state.execution_order == [
-        {ExVisiflow.StepOk, :run},
-        {ExVisiflow.StepError, :run},
-        {ExVisiflow.StepError, :rollback},
-        {ExVisiflow.StepOk, :rollback},
-      ]
+               {ExVisiflow.StepOk, :run},
+               {ExVisiflow.StepError, :run},
+               {ExVisiflow.StepError, :rollback},
+               {ExVisiflow.StepOk, :rollback}
+             ]
     end
   end
 
   describe "an async, succeeding workflow with no wrapper steps or finalizer" do
     defmodule AsyncSuccess do
-      use ExVisiflow, steps: [
+      use ExVisiflow,
+        steps: [
           ExVisiflow.StepOk,
           ExVisiflow.AsyncStepOk
-        ], state_type: ExVisiflow.TestSteps
+        ],
+        state_type: ExVisiflow.TestSteps
     end
 
     test "the workflow runs, pauses, and then succeeds when the message is received", %{test_steps: test_steps} do
@@ -118,10 +125,12 @@ defmodule ExVisiflowTest do
 
       # assert
       # after the first pause-step:
-      assert_eventually([
-        {ExVisiflow.StepOk, :run},
-        {ExVisiflow.AsyncStepOk, :run}
-      ] == StateAgent.get(test_steps.agent).execution_order)
+      assert_eventually(
+        [
+          {ExVisiflow.StepOk, :run},
+          {ExVisiflow.AsyncStepOk, :run}
+        ] == StateAgent.get(test_steps.agent).execution_order
+      )
 
       # act 2 - now continue processing by sending the expected continue message
       send(pid, ExVisiflow.AsyncStepOk)
@@ -130,11 +139,12 @@ defmodule ExVisiflowTest do
       assert_receive {:EXIT, ^pid, :normal}
 
       flow_state = StateAgent.get(test_steps.agent)
+
       assert flow_state.execution_order == [
-        {ExVisiflow.StepOk, :run},
-        {ExVisiflow.AsyncStepOk, :run},
-        {ExVisiflow.AsyncStepOk, :run_handle_info}
-      ]
+               {ExVisiflow.StepOk, :run},
+               {ExVisiflow.AsyncStepOk, :run},
+               {ExVisiflow.AsyncStepOk, :run_handle_info}
+             ]
     end
   end
 
@@ -144,7 +154,7 @@ defmodule ExVisiflowTest do
         steps: [
           ExVisiflow.StepOk,
           ExVisiflow.AsyncStepOk,
-          ExVisiflow.AsyncStepError,
+          ExVisiflow.AsyncStepError
         ],
         state_type: ExVisiflow.TestSteps
     end
@@ -158,38 +168,70 @@ defmodule ExVisiflowTest do
 
       assert_receive {:EXIT, ^pid, :error}
       flow_state = StateAgent.get(test_steps.agent)
+
       assert flow_state.execution_order == [
-        {ExVisiflow.StepOk, :run},
-        {ExVisiflow.AsyncStepOk, :run},
-        {ExVisiflow.AsyncStepOk, :run_handle_info},
-        {ExVisiflow.AsyncStepError, :run},
-        {ExVisiflow.AsyncStepError, :run_handle_info},
-        {ExVisiflow.AsyncStepError, :rollback},
-        {ExVisiflow.AsyncStepOk, :rollback},
-        {ExVisiflow.StepOk, :rollback},
-      ]
+               {ExVisiflow.StepOk, :run},
+               {ExVisiflow.AsyncStepOk, :run},
+               {ExVisiflow.AsyncStepOk, :run_handle_info},
+               {ExVisiflow.AsyncStepError, :run},
+               {ExVisiflow.AsyncStepError, :run_handle_info},
+               {ExVisiflow.AsyncStepError, :rollback},
+               {ExVisiflow.AsyncStepOk, :rollback},
+               {ExVisiflow.StepOk, :rollback}
+             ]
     end
 
-    test "the workflow runs, and if told to rollback from a separate handler, does so w/out running any further than necessary", %{test_steps: test_steps} do
+    test "the workflow runs, and if told to rollback from a separate handler, does so w/out running any further than necessary",
+         %{test_steps: test_steps} do
       assert {:ok, pid} = AsyncFailureRollsBack.start_link(test_steps)
 
       send(pid, ExVisiflow.AsyncStepOk)
       send(pid, {:rollback, :external_error})
       assert_receive {:EXIT, ^pid, :external_error}
       flow_state = StateAgent.get(test_steps.agent)
+
       assert flow_state.execution_order == [
-        {ExVisiflow.StepOk, :run},
-        {ExVisiflow.AsyncStepOk, :run},
-        {ExVisiflow.AsyncStepOk, :run_handle_info},
-        {ExVisiflow.AsyncStepError, :run},
+               {ExVisiflow.StepOk, :run},
+               {ExVisiflow.AsyncStepOk, :run},
+               {ExVisiflow.AsyncStepOk, :run_handle_info},
+               {ExVisiflow.AsyncStepError, :run},
 
-        # this one is never run
-        # {ExVisiflow.AsyncStepError, :run_handle_info},
+               # this one is never run
+               # {ExVisiflow.AsyncStepError, :run_handle_info},
 
-        {ExVisiflow.AsyncStepError, :rollback},
-        {ExVisiflow.AsyncStepOk, :rollback},
-        {ExVisiflow.StepOk, :rollback},
-      ]
+               {ExVisiflow.AsyncStepError, :rollback},
+               {ExVisiflow.AsyncStepOk, :rollback},
+               {ExVisiflow.StepOk, :rollback}
+             ]
+    end
+  end
+
+  describe "a synchronous, successful workflow with wrapper steps" do
+    defmodule SyncWrapperSuccess do
+      use ExVisiflow,
+        steps: [ExVisiflow.StepOk, ExVisiflow.StepOk2],
+        state_type: ExVisiflow.TestSteps,
+        wrappers: [ExVisiflow.WrapperOk, ExVisiflow.WrapperOk2]
+    end
+
+    test "wrapper steps are all run", %{test_steps: test_steps} do
+      assert {:ok, pid} = SyncWrapperSuccess.start_link(test_steps)
+
+      assert_receive {:EXIT, ^pid, :normal}
+      flow_state = StateAgent.get(test_steps.agent)
+
+      assert flow_state.execution_order == [
+               {ExVisiflow.WrapperOk, :pre},
+               {ExVisiflow.WrapperOk2, :pre},
+               {ExVisiflow.StepOk, :run},
+               {ExVisiflow.WrapperOk, :post},
+               {ExVisiflow.WrapperOk2, :post},
+               {ExVisiflow.WrapperOk, :pre},
+               {ExVisiflow.WrapperOk2, :pre},
+               {ExVisiflow.StepOk2, :run},
+               {ExVisiflow.WrapperOk, :post},
+               {ExVisiflow.WrapperOk2, :post},
+             ]
     end
   end
 end
