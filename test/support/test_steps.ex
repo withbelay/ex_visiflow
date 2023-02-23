@@ -28,7 +28,6 @@ defmodule ExVisiflow.TestSteps do
   @spec run_step(ExVisiflow.TestSteps.t(), atom(), atom(), atom()) :: {atom(), ExVisiflow.TestSteps.t()}
   def run_step(%TestSteps{} = state, step_module, step_func, step_result) do
     full_step = {step_module, step_func}
-    # full_step = "#{step_module}.#{step_func}"
     state =
       %{state | step_result: step_result}
       |> Map.update(:steps_run, Map.put(%{}, full_step, 1), fn current ->

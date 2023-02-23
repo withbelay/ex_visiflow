@@ -19,18 +19,16 @@ defmodule ExVisiflow do
       def get_state(pid), do: GenServer.call(pid, :get_state)
 
       def handle_continue(:run, state) do
-        execute_func(state)
-        |> map_response()
+        execute_func(state) |> map_response()
       end
 
       def handle_info(:rollback, state) do
+        # Todo: This is wrong - it needs to update the state to rollback, and then :continue, :run
         {:stop, :rollback, state}
       end
 
-      # This is a combination of the handle_continue and the run funcs right now. It can't be universal because
       def handle_info(message, %{step_index: step_index} = state) do
-        execute_func(state, message)
-        |> map_response()
+        execute_func(state, message) |> map_response()
       end
 
       def execute_func(state, message \\ nil) do
@@ -61,20 +59,13 @@ defmodule ExVisiflow do
       def select_next_step(state), do: %{state | step_direction: -1}
 
       @doc """
-      Each workflow step can have up to 4 functions.
-      * run
-      * run_handle_info
-      * rollback
-      * rollback_handle_info
+      Each workflow step can have up to 4 functions. This maps the visiflow state to one of them
       """
       def select_next_func(%{step_result: :ok, step_direction: 1} = state), do: %{state | func: :run}
-      def select_next_func(%{step_result: :continue, step_direction: 1} = state),
-        do: %{state | func: :run_handle_info}
       def select_next_func(%{step_result: :ok, step_direction: -1} = state), do: %{state | func: :rollback}
-      def select_next_func(%{step_result: :continue, step_direction: -1} = state),
-        do: %{state | func: :rollback_handle_info}
-      def select_next_func(state),
-        do: %{state | func: :rollback}
+      def select_next_func(%{step_result: :continue, step_direction: 1} = state), do: %{state | func: :run_handle_info}
+      def select_next_func(%{step_result: :continue, step_direction: -1} = state), do: %{state | func: :rollback_handle_info}
+      def select_next_func(state), do: %{state | func: :rollback} # any other result is an error
 
       defp get_step(%{step_index: step_index}), do: Enum.at(unquote(steps), step_index)
 
