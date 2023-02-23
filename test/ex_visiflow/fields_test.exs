@@ -15,7 +15,7 @@ defmodule ExVisiflow.FieldsTest do
   test "when including the visiflow_fields, defaults are provided" do
     assert {:ok, %TestFields{
       step_index: 0,
-      step_direction: 1,
+      flow_direction: :up,
       func: :run,
       step_result: nil
     }} == TestFields.new(%{})

@@ -54,17 +54,18 @@ defmodule ExVisiflow do
       @doc """
       Determine which step should be run next
       """
-      def select_next_step(%{step_result: :ok} = state), do: %{ state | step_index: state.step_index + state.step_direction }
+      def select_next_step(%{step_result: :ok, flow_direction: :up} = state), do: %{ state | step_index: state.step_index + 1 }
+      def select_next_step(%{step_result: :ok, flow_direction: :down} = state), do: %{ state | step_index: state.step_index - 1 }
       def select_next_step(%{step_result: :continue} = state), do: state
-      def select_next_step(state), do: %{state | step_direction: -1}
+      def select_next_step(state), do: %{state | flow_direction: :down}
 
       @doc """
       Each workflow step can have up to 4 functions. This maps the visiflow state to one of them
       """
-      def select_next_func(%{step_result: :ok, step_direction: 1} = state), do: %{state | func: :run}
-      def select_next_func(%{step_result: :ok, step_direction: -1} = state), do: %{state | func: :rollback}
-      def select_next_func(%{step_result: :continue, step_direction: 1} = state), do: %{state | func: :run_handle_info}
-      def select_next_func(%{step_result: :continue, step_direction: -1} = state), do: %{state | func: :rollback_handle_info}
+      def select_next_func(%{step_result: :ok, flow_direction: :up} = state), do: %{state | func: :run}
+      def select_next_func(%{step_result: :ok, flow_direction: :down} = state), do: %{state | func: :rollback}
+      def select_next_func(%{step_result: :continue, flow_direction: :up} = state), do: %{state | func: :run_handle_info}
+      def select_next_func(%{step_result: :continue, flow_direction: :down} = state), do: %{state | func: :rollback_handle_info}
       def select_next_func(state), do: %{state | func: :rollback} # any other result is an error
 
       defp get_step(%{step_index: step_index}), do: Enum.at(unquote(steps), step_index)

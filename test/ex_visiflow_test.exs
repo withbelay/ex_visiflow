@@ -16,22 +16,22 @@ defmodule ExVisiflowTest do
 
   describe "select_next_func\1" do
     test "when run result is :ok" do
-      state = TestSteps.new!(%{step_result: :ok, step_direction: 1})
+      state = TestSteps.new!(%{step_result: :ok, flow_direction: :up})
       assert JustStart.select_next_func(state).func == :run
     end
 
     test "when run result is continue" do
-      state = TestSteps.new!(%{step_result: :continue, step_direction: 1})
+      state = TestSteps.new!(%{step_result: :continue, flow_direction: :up})
       assert JustStart.select_next_func(state).func == :run_handle_info
     end
 
     test "when rollback result is :ok" do
-      state = TestSteps.new!(%{step_result: :ok, step_direction: -1})
+      state = TestSteps.new!(%{step_result: :ok, flow_direction: :down})
       assert JustStart.select_next_func(state).func == :rollback
     end
 
     test "when rollback result is continue" do
-      state = TestSteps.new!(%{step_result: :continue, step_direction: -1})
+      state = TestSteps.new!(%{step_result: :continue, flow_direction: :down})
       assert JustStart.select_next_func(state).func == :rollback_handle_info
     end
   end
