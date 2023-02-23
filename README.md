@@ -2,7 +2,7 @@
 
 **TODO: Add description**
 
-- [ ] Remove the application.ex
+- [x] Remove the application.ex
 - [ ] Add wrappers
 - [x] Add step macros
 
