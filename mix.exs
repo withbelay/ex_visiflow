@@ -5,6 +5,7 @@ defmodule ExVisiflow.MixProject do
     [
       app: :ex_visiflow,
       version: "0.1.0",
+      elixirc_paths: elixirc_paths(Mix.env()),
       elixir: "~> 1.14",
       start_permanent: Mix.env() == :prod,
       deps: deps()
@@ -18,6 +19,10 @@ defmodule ExVisiflow.MixProject do
       mod: {ExVisiflow.Application, []}
     ]
   end
+
+  defp elixirc_paths(:test), do: ["lib", "test/support"]
+  defp elixirc_paths(_), do: ["lib"]
+
 
   # Run "mix help deps" to learn about dependencies.
   defp deps do

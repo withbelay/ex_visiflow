@@ -7,78 +7,83 @@ defmodule ExVisiflow.TestSteps do
 
   typed_embedded_schema do
     visiflow_fields()
+    field(:agent, ExVisiflow.Pid, virtual: true)
     field(:steps_run, :map)
     field(:execution_order, {:array, :string})
   end
 
-  @spec new :: ExVisiflow.TestSteps.t()
-  def new(), do: new!(%{})
-  def_new(required: :none, default: [
-    {:step_index, 0},
-    {:steps_run, %{}},
-    {:execution_order, []},
-  ])
+  def new() do
+    {:ok, agent} = StateAgent.start_link()
+    new!(%{agent: agent})
+  end
 
-  @spec run_step(ExVisiflow.TestSteps.t(), any, any) :: {atom(), ExVisiflow.TestSteps.t()}
+  def_new(
+    required: :none,
+    default: [
+      {:step_index, 0},
+      {:steps_run, %{}},
+      {:execution_order, []}
+    ]
+  )
+
+  @spec run_step(ExVisiflow.TestSteps.t(), atom(), atom(), atom()) :: {atom(), ExVisiflow.TestSteps.t()}
   def run_step(%TestSteps{} = state, step_module, step_func, step_result) do
     full_step = {step_module, step_func}
     # full_step = "#{step_module}.#{step_func}"
-    state = %{state | step_result: step_result}
-    |> Map.update(:steps_run, Map.put(%{}, full_step, 1), fn current ->
-      Map.update(current, full_step, 1, &(&1 + 1))
-    end)
-    |> Map.update(:execution_order, [full_step], fn current -> current ++ List.wrap(full_step) end)
+    state =
+      %{state | step_result: step_result}
+      |> Map.update(:steps_run, Map.put(%{}, full_step, 1), fn current ->
+        Map.update(current, full_step, 1, &(&1 + 1))
+      end)
+      |> Map.update(:execution_order, [full_step], fn current ->
+        current ++ List.wrap(full_step)
+      end)
+
+    StateAgent.set(state.agent, state)
     {step_result, state}
   end
-
-
-  @spec run_step(ExVisiflow.TestSteps.t(), any, any) :: {atom(), ExVisiflow.TestSteps.t()}
-  def run_step(%TestSteps{} = state, step, step_result) do
-    run_step(state, step, :run, step_result)
-    # state = state
-    # |> Map.put(:step_result, step_result)
-    # |> Map.update(:steps_run, Map.put(%{}, step, 1), fn current ->
-    #   Map.update(current, step, 1, &(&1 + 1))
-    # end)
-    # |> Map.update(:execution_order, [step], fn current -> current ++ List.wrap(step) end)
-    # {step_result, state}
-  end
-
 end
-
 
 defmodule ExVisiflow.StepOk do
   alias ExVisiflow.TestSteps
-  def run(%TestSteps{} = state), do: TestSteps.run_step(state, __MODULE__, :ok)
+  def run(%TestSteps{} = state), do: TestSteps.run_step(state, __MODULE__, :run, :ok)
 end
+
 defmodule ExVisiflow.StepOk2 do
   alias ExVisiflow.TestSteps
-  def run(%TestSteps{} = state), do: TestSteps.run_step(state, __MODULE__, :ok)
+  def run(%TestSteps{} = state), do: TestSteps.run_step(state, __MODULE__, :run, :ok)
 
-  def rollback(%TestSteps{} = state), do: TestSteps.run_step(state, __MODULE__, :ok)
+  def rollback(%TestSteps{} = state), do: TestSteps.run_step(state, __MODULE__, :rollback, :ok)
 end
+
 defmodule ExVisiflow.StepError do
   alias ExVisiflow.TestSteps
-  def run(%TestSteps{} = state), do: TestSteps.run_step(state, __MODULE__, :error)
+  def run(%TestSteps{} = state), do: TestSteps.run_step(state, __MODULE__, :run, :error)
+
+  def rollback(%TestSteps{} = state), do: TestSteps.run_step(state, __MODULE__, :rollback, :ok)
 end
+
 defmodule ExVisiflow.AsyncStepOk do
   alias ExVisiflow.TestSteps
   @spec run(ExVisiflow.TestSteps.t()) :: {atom(), ExVisiflow.TestSteps.t()}
-  def run(%TestSteps{} = state), do: TestSteps.run_step(state, __MODULE__, :continue)
+  def run(%TestSteps{} = state), do: TestSteps.run_step(state, __MODULE__, :run, :continue)
 
   def run_handle_info(ExVisiflow.AsyncStepOk, state) do
     TestSteps.run_step(state, __MODULE__, :run_handle_info, :ok)
   end
 
+  def rollback(%TestSteps{} = state), do: TestSteps.run_step(state, __MODULE__, :rollback, :ok)
 end
+
 defmodule ExVisiflow.AsyncStepOk2 do
   alias ExVisiflow.TestSteps
-  def run(%TestSteps{} = state), do: TestSteps.run_step(state, __MODULE__, :continue)
+  def run(%TestSteps{} = state), do: TestSteps.run_step(state, __MODULE__, :run, :continue)
 
   def run_handle_info(ExVisiflow.AsyncStepOk2, state) do
-    TestSteps.run_step(state, __MODULE__, :ok)
+    TestSteps.run_step(state, __MODULE__, :run_handle_info, :ok)
   end
 
+  def rollback(%TestSteps{} = state), do: TestSteps.run_step(state, __MODULE__, :rollback, :ok)
 end
 
 # defmodule ExVisiflow.StepError do
