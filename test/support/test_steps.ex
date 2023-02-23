@@ -20,7 +20,6 @@ defmodule ExVisiflow.TestSteps do
   def_new(
     required: :none,
     default: [
-      {:step_index, 0},
       {:steps_run, %{}},
       {:execution_order, []}
     ]
