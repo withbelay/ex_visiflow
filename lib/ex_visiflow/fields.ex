@@ -10,12 +10,14 @@ defmodule ExVisiflow.Fields do
 
   defmacro visiflow_fields(_opts \\ []) do
     quote location: :keep do
-      field(:step_index, :integer, default: 0)
       field(:flow_direction, ExVisiflow.Atom, default: :up)
+      field(:flow_error_reason, ExVisiflow.Atom, default: :normal)
+
+      field(:step_index, :integer, default: 0)
       field(:step_mod, ExVisiflow.Atom, default: nil)
       field(:step_func, ExVisiflow.Atom, default: :run)
       field(:step_result, ExVisiflow.Atom, default: nil)
-      field(:flow_error_reason, ExVisiflow.Atom, default: :normal)
+
       field(:wrapper_mod, ExVisiflow.Atom, default: nil)
       field(:wrapper_func, ExVisiflow.Atom, default: nil)
       field(:wrapper_result, ExVisiflow.Atom, default: nil)
