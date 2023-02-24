@@ -89,10 +89,16 @@ defmodule ExVisiflow.TypedSchemaHelpers do
       end
 
       def new(attrs) do
+        cast_fields = __MODULE__.__schema__(:fields)
+        |> Kernel.++(__MODULE__.__schema__(:virtual_fields))
+        |> Enum.reject(&(&1 in __MODULE__.__schema__(:embeds)))
+
+        attrs = default_fields(attrs, @default_fields)
         %__MODULE__{}
-        |> change()
+        |> change(attrs)
         |> default_fields(@default_fields)
-        |> cast(attrs, __MODULE__.__schema__(:fields) ++ __MODULE__.__schema__(:virtual_fields))
+        |> cast(attrs, cast_fields)
+        |> maybe_cast_embeds(attrs)
         |> do_required(
           @req_attrs,
           __MODULE__.__schema__(:fields) ++ __MODULE__.__schema__(:virtual_fields)
@@ -107,18 +113,27 @@ defmodule ExVisiflow.TypedSchemaHelpers do
           {:error, cs} -> raise "Invalid #{__MODULE__}.new!(): #{inspect(cs.errors)}"
         end
       end
+
+      def maybe_cast_embeds(changeset, attrs) do
+        case __MODULE__.__schema__(:embeds) do
+          [] -> changeset
+          embeds ->
+            Enum.reduce(embeds, changeset, fn field, changeset -> cast_embed(changeset, field) end)
+
+        end
+      end
     end
   end
 
-  def default_fields(struct, default_fields) do
-    params =
+  def default_fields(attrs, default_fields) do
+    # params =
       List.wrap(default_fields)
-      |> Enum.reduce(%{}, fn
+      |> Enum.reduce(attrs, fn
         {field, {m, f, a}}, attrs -> Map.put_new(attrs, field, apply(m, f, a))
         {field, value}, attrs -> Map.put_new(attrs, field, value)
       end)
 
-    cast(struct, params, Map.keys(params))
+    # cast(struct, params, Map.keys(params))
   end
 
   def do_required(changeset, {:required, :none}, _all_fields), do: changeset

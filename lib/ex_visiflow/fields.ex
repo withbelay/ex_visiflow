@@ -1,26 +1,31 @@
 defmodule ExVisiflow.Fields do
-  defmacro __using__(_) do
-    quote location: :keep do
-      import ExVisiflow.Fields
-      import Ecto.Changeset
-    end
+  use TypedEctoSchema
+  use ExVisiflow.TypedSchemaHelpers
+
+  typed_embedded_schema do
+    field(:flow_direction, ExVisiflow.Atom, default: :up)
+    field(:flow_error_reason, ExVisiflow.Atom, default: :normal)
+
+    field(:step_index, :integer, default: 0)
+    field(:step_mod, ExVisiflow.Atom, default: nil)
+    field(:step_func, ExVisiflow.Atom, default: :run)
+    field(:step_result, ExVisiflow.Atom, default: nil)
+
+    field(:wrapper_mod, ExVisiflow.Atom, default: nil)
+    field(:wrapper_func, ExVisiflow.Atom, default: nil)
+    field(:wrapper_result, ExVisiflow.Atom, default: nil)
   end
 
-  @type t :: %{step: atom(), step_result: atom()}
+  def_new(required: :none)
 
-  defmacro visiflow_fields(_opts \\ []) do
-    quote location: :keep do
-      field(:flow_direction, ExVisiflow.Atom, default: :up)
-      field(:flow_error_reason, ExVisiflow.Atom, default: :normal)
+  def changeset(changeset, params) do
+    # IO.inspect(["Visiflow.Fields", changeset, params])
+    params = Map.merge(%{step_index: 0, flow_error_reason: :normal, flow_direction: :up}, params)
 
-      field(:step_index, :integer, default: 0)
-      field(:step_mod, ExVisiflow.Atom, default: nil)
-      field(:step_func, ExVisiflow.Atom, default: :run)
-      field(:step_result, ExVisiflow.Atom, default: nil)
-
-      field(:wrapper_mod, ExVisiflow.Atom, default: nil)
-      field(:wrapper_func, ExVisiflow.Atom, default: nil)
-      field(:wrapper_result, ExVisiflow.Atom, default: nil)
-    end
+    cast(
+      changeset,
+      params,
+      ~w[flow_direction flow_error_reason step_index step_mod step_func step_result wrapper_mod wrapper_func wrapper_result]a
+    )
   end
 end

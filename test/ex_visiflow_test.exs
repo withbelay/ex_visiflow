@@ -3,6 +3,7 @@ defmodule ExVisiflowTest do
   use AssertEventually, timeout: 50, interval: 5
 
   alias ExVisiflow.TestSteps
+  alias ExVisiflow.Fields
 
   doctest ExVisiflow
 
@@ -17,22 +18,22 @@ defmodule ExVisiflowTest do
 
   describe "select_step\1" do
     test "when run result is :ok" do
-      state = TestSteps.new!(%{step_result: :ok, flow_direction: :up})
+      state = Fields.new!(%{step_result: :ok, flow_direction: :up})
       assert JustStart.select_step(state).step_func == :run
     end
 
     test "when run result is continue" do
-      state = TestSteps.new!(%{step_result: :continue, flow_direction: :up})
+      state = Fields.new!(%{step_result: :continue, flow_direction: :up})
       assert JustStart.select_step(state).step_func == :run_handle_info
     end
 
     test "when rollback result is :ok" do
-      state = TestSteps.new!(%{step_result: :ok, flow_direction: :down})
+      state = Fields.new!(%{step_result: :ok, flow_direction: :down})
       assert JustStart.select_step(state).step_func == :rollback
     end
 
     test "when rollback result is continue" do
-      state = TestSteps.new!(%{step_result: :continue, flow_direction: :down})
+      state = Fields.new!(%{step_result: :continue, flow_direction: :down})
       assert JustStart.select_step(state).step_func == :rollback_handle_info
     end
   end
@@ -81,17 +82,20 @@ defmodule ExVisiflowTest do
 
   describe "a synchronous, failing workflow with no wrapper steps or finalizer" do
     defmodule SyncFailure do
-      use ExVisiflow, steps: [ExVisiflow.StepOk, ExVisiflow.StepError], state_type: ExVisiflow.TestSteps
+      use ExVisiflow,
+        steps: [ExVisiflow.StepOk, ExVisiflow.StepError],
+        state_type: ExVisiflow.TestSteps
     end
 
     test "the workflow fails the first step", %{test_steps: test_steps} do
       {:ok, test_steps, _} = SyncFailure.init(test_steps)
       assert {:ok, state} = SyncFailure.execute_step(test_steps)
       assert {:error, state} = SyncFailure.execute_step(state)
+      visi = state.__visi__
       assert state.steps_run[{ExVisiflow.StepError, :run}] == 1
-      assert state.step_result == :error
-      assert state.step_index == 1
-      assert state.flow_direction == :down
+      assert visi.step_result == :error
+      assert visi.step_index == 1
+      assert visi.flow_direction == :down
     end
 
     test "the workflow rollsback", %{test_steps: test_steps} do

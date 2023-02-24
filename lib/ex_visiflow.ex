@@ -17,14 +17,15 @@ defmodule ExVisiflow do
 
     quote location: :keep do
       use GenServer, restart: :transient
+      alias ExVisiflow.Fields
       require Logger
 
       def start_link(%unquote(state_type){} = state) do
         GenServer.start_link(__MODULE__, state)
       end
 
-      def init(%unquote(state_type){} = state) do
-        state = select_step(state)
+      def init(%unquote(state_type){__visi__: visi} = state) do
+        state = %{state | __visi__: select_step(visi)}
 
         {:ok, state, {:continue, :run}}
       end
@@ -38,28 +39,29 @@ defmodule ExVisiflow do
       end
 
       def handle_info({:rollback, reason}, %unquote(state_type){} = state) do
-        state =
-          state
+        visi =
+          state.__visi__
           |> Map.put(:step_result, reason)
           |> maybe_save_ultimate_flow_error(reason)
           |> select_step()
 
+        state = %{state | __visi__: visi}
+
         {:noreply, state, {:continue, :run}}
       end
 
-      def handle_info(message, %unquote(state_type){step_index: step_index} = state) do
+      def handle_info(message, %unquote(state_type){} = state) do
         execute_func(state, message) |> map_step_response_to_genserver_response()
       end
 
       @doc """
       before_steps and after_steps MUST be synchronous
       """
-      def execute_step(%unquote(state_type){step_mod: nil} = state) do
-        {:stop, Map.get(state, :flow_error_reason, :normal), state}
+      def execute_step(%unquote(state_type){__visi__: %{step_mod: nil}=visi} = state) do
+        {:stop, Map.get(visi, :flow_error_reason, :normal), state}
       end
 
       def execute_step(%unquote(state_type){} = state) do
-        # execute_func(state, message)
         with {:ok, state} <- run_wrappers(:pre, state),
              {result, state} when result != :continue <- execute_func(state),
              {after_result, state} <- run_wrappers(:post, state),
@@ -71,19 +73,20 @@ defmodule ExVisiflow do
       defp coalesce(step_result, :ok), do: step_result
       defp coalesce(:ok, after_result), do: after_result
 
-      def execute_func(%unquote(state_type){} = state, message \\ nil) do
+      def execute_func(%unquote(state_type){__visi__: visi} = state, message \\ nil) do
         {result, state} =
           case is_nil(message) do
-            true -> apply(state.step_mod, state.step_func, [state])
-            false -> apply(state.step_mod, state.step_func, [message, state])
+            true -> apply(visi.step_mod, visi.step_func, [state])
+            false -> apply(visi.step_mod, visi.step_func, [message, state])
           end
 
-        state =
-          %{state | step_result: result}
+        visi =
+          state.__visi__
+          |> Map.put(:step_result, result)
           |> maybe_save_ultimate_flow_error(result)
           |> select_step()
 
-        {result, state}
+        {result, %{state | __visi__: visi}}
       end
 
       def map_step_response_to_genserver_response(execution_response) do
@@ -102,33 +105,44 @@ defmodule ExVisiflow do
 
       def handle_call(:get_state, _from, %unquote(state_type){} = state), do: {:reply, state, state}
 
-      def select_step(%unquote(state_type){step_result: nil, flow_direction: :up} = state) do
+      def select_step(%Fields{step_result: nil, flow_direction: :up} = state) do
         # step_result is nil initially
         state = %{state | step_mod: get_step(state.step_index), step_func: :run}
       end
-      def select_step(%unquote(state_type){step_result: :ok, flow_direction: :up} = state) do
+
+      def select_step(%Fields{step_result: :ok, flow_direction: :up} = state) do
         step_index = state.step_index + 1
         state = %{state | step_index: step_index, step_mod: get_step(step_index), step_func: :run}
       end
-      def select_step(%unquote(state_type){step_result: :ok, flow_direction: :down} = state) do
+
+      def select_step(%Fields{step_result: :ok, flow_direction: :down} = state) do
         step_index = state.step_index - 1
         state = %{state | step_index: step_index, step_mod: get_step(step_index), step_func: :rollback}
       end
-      def select_step(%unquote(state_type){step_result: :continue, flow_direction: :up} = state) do
+
+      def select_step(%Fields{step_result: :continue, flow_direction: :up} = state) do
         %{state | step_func: :run_handle_info}
       end
-      def select_step(%unquote(state_type){step_result: :continue, flow_direction: :down} = state) do
+
+      def select_step(%Fields{step_result: :continue, flow_direction: :down} = state) do
         %{state | step_func: :rollback_handle_info}
       end
-      def select_step(%unquote(state_type){} = state), do: %{state | flow_direction: :down, step_func: :rollback}
+
+      def select_step(%Fields{} = state), do: %{state | flow_direction: :down, step_func: :rollback}
+
+      # move to the Visiflow.Fields macro
+      defp set_step_result(%Fields{} = state, reason) do
+        %{state | step_result: reason}
+      end
 
       # If we're flowing forward, and get a result that is not ok or continue, then we need
       # to save that result to the flow_error_reason, because we're about to rollback
-      defp maybe_save_ultimate_flow_error(%unquote(state_type){flow_direction: :up} = state, result)
+      defp maybe_save_ultimate_flow_error(%Fields{flow_direction: :up} = state, result)
            when result not in ~w(ok continue)a do
         %{state | flow_error_reason: result}
       end
-      defp maybe_save_ultimate_flow_error(%unquote(state_type){} = state, _reason), do: state
+
+      defp maybe_save_ultimate_flow_error(%Fields{} = state, _reason), do: state
 
       # Enum.at(-1) gets the last element in the list, which is not what I want.
       defp get_step(step_index) when step_index < 0, do: nil
@@ -140,14 +154,14 @@ defmodule ExVisiflow do
 
         result =
           Enum.reduce_while(wrapper_mods, state, fn mod, state ->
-            state = set_current_wrapper(state, mod, func)
+            state = %{state | __visi__: set_current_wrapper(state.__visi__, mod, func)}
 
             case apply(mod, func, [state]) do
               {_, invalid_state} = invalid_response when not is_struct(invalid_state, unquote(state_type)) ->
                 {:halt, {:stop, :invalid_return_value, state}}
 
               {:ok, state} ->
-                state = clear_current_wrapper(state)
+                state = %{state | __visi__: clear_current_wrapper(state.__visi__)}
                 {:cont, state}
 
               {result, state} when is_atom(result) ->
@@ -160,8 +174,8 @@ defmodule ExVisiflow do
 
       # State must track the wrapper_mod and func. These helpers allow the func above to remain
       # at a consistent level of abstraction
-      defp set_current_wrapper(state, mod, func), do: %{state | wrapper_mod: mod, wrapper_func: func}
-      defp clear_current_wrapper(state), do: %{state | wrapper_mod: nil, wrapper_func: nil}
+      defp set_current_wrapper(%Fields{} = fields, mod, func), do: %{fields | wrapper_mod: mod, wrapper_func: func}
+      defp clear_current_wrapper(%Fields{} = fields), do: %{fields | wrapper_mod: nil, wrapper_func: nil}
     end
   end
 end
