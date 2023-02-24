@@ -234,4 +234,88 @@ defmodule ExVisiflowTest do
              ]
     end
   end
+
+  describe "a synchronous workflow with before steps that fail" do
+    defmodule SyncWrapperBeforeFailure do
+      use ExVisiflow,
+        steps: [ExVisiflow.StepOk, ExVisiflow.StepOk2],
+        state_type: ExVisiflow.TestSteps,
+        wrappers: [ExVisiflow.WrapperBeforeFailure]
+    end
+
+    test "wrapper steps are all run", %{test_steps: test_steps} do
+      assert {:ok, pid} = SyncWrapperBeforeFailure.start_link(test_steps)
+
+      assert_receive {:EXIT, ^pid, :before_error}
+      flow_state = StateAgent.get(test_steps.agent)
+
+      assert flow_state.execution_order == [
+               {ExVisiflow.WrapperBeforeFailure, :pre},
+             ]
+    end
+  end
+
+  describe "a synchronous workflow with after steps that fail" do
+    defmodule SyncWrapperAfterFailure do
+      use ExVisiflow,
+        steps: [ExVisiflow.StepOk, ExVisiflow.StepOk2],
+        state_type: ExVisiflow.TestSteps,
+        wrappers: [ExVisiflow.WrapperAfterFailure]
+    end
+
+    test "wrapper steps are all run", %{test_steps: test_steps} do
+      assert {:ok, pid} = SyncWrapperAfterFailure.start_link(test_steps)
+
+      assert_receive {:EXIT, ^pid, :after_error}
+      flow_state = StateAgent.get(test_steps.agent)
+
+      assert flow_state.execution_order == [
+               {ExVisiflow.WrapperAfterFailure, :pre},
+               {ExVisiflow.StepOk, :run},
+               {ExVisiflow.WrapperAfterFailure, :post},
+             ]
+    end
+  end
+
+  describe "a synchronous workflow with before steps that raise" do
+    defmodule SyncWrapperBeforeRaise do
+      use ExVisiflow,
+        steps: [ExVisiflow.StepOk, ExVisiflow.StepOk2],
+        state_type: ExVisiflow.TestSteps,
+        wrappers: [ExVisiflow.WrapperBeforeRaise]
+    end
+
+    test "raises when run", %{test_steps: test_steps} do
+      assert {:ok, pid} = SyncWrapperBeforeRaise.start_link(test_steps)
+
+      assert_receive {:EXIT, ^pid, :invalid_return_value}
+      flow_state = StateAgent.get(test_steps.agent)
+
+      assert flow_state.execution_order == [
+               {ExVisiflow.WrapperBeforeRaise, :pre},
+             ]
+    end
+  end
+
+  describe "a synchronous workflow with after steps that raise" do
+    defmodule SyncWrapperAfterRaise do
+      use ExVisiflow,
+        steps: [ExVisiflow.StepOk, ExVisiflow.StepOk2],
+        state_type: ExVisiflow.TestSteps,
+        wrappers: [ExVisiflow.WrapperAfterRaise]
+    end
+
+    test "raises when run", %{test_steps: test_steps} do
+      assert {:ok, pid} = SyncWrapperAfterRaise.start_link(test_steps)
+
+      assert_receive {:EXIT, ^pid, :invalid_return_value}
+      flow_state = StateAgent.get(test_steps.agent)
+
+      assert flow_state.execution_order == [
+               {ExVisiflow.WrapperAfterRaise, :pre},
+               {ExVisiflow.StepOk, :run},
+               {ExVisiflow.WrapperAfterRaise, :post},
+             ]
+    end
+  end
 end

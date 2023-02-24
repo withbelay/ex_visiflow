@@ -143,16 +143,15 @@ defmodule ExVisiflow do
             state = set_current_wrapper(state, mod, func)
 
             case apply(mod, func, [state]) do
-              # {_, invalid_state} = invalid_response when not is_struct(invalid_state, unquote(state_type)) ->
-              #   raise_invalid_response(state, invalid_response)
+              {_, invalid_state} = invalid_response when not is_struct(invalid_state, unquote(state_type)) ->
+                {:halt, {:stop, :invalid_return_value, state}}
 
               {:ok, state} ->
-                # clear the running wrapper
                 state = clear_current_wrapper(state)
                 {:cont, state}
 
-                # {error, state} when is_atom(error) ->
-                #   {:halt, {error, state}}
+              {result, state} when is_atom(result) ->
+                {:halt, {:stop, result, state}}
             end
           end)
 
@@ -163,17 +162,6 @@ defmodule ExVisiflow do
       # at a consistent level of abstraction
       defp set_current_wrapper(state, mod, func), do: %{state | wrapper_mod: mod, wrapper_func: func}
       defp clear_current_wrapper(state), do: %{state | wrapper_mod: nil, wrapper_func: nil}
-
-      defp raise_invalid_response(%unquote(state_type){} = state, invalid_response) do
-        # failed_step =
-        #   case is_nil(state.step_wrapper) do
-        #     true -> state.step
-        #     false -> state.step_wrapper
-        #   end
-
-        # raise ArgumentError,
-        #       "#{__MODULE__}.#{failed_step} returned an invalid response: #{inspect(invalid_response)}"
-      end
     end
   end
 end

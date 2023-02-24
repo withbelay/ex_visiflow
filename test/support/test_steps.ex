@@ -122,3 +122,39 @@ defmodule ExVisiflow.WrapperOk2 do
     TestSteps.run_wrapper(state, __MODULE__, :post, :ok)
   end
 end
+
+defmodule ExVisiflow.WrapperBeforeFailure do
+  alias ExVisiflow.TestSteps
+  def pre(%TestSteps{} = state) do
+    TestSteps.run_wrapper(state, __MODULE__, :pre, :before_error)
+  end
+end
+
+defmodule ExVisiflow.WrapperAfterFailure do
+  alias ExVisiflow.TestSteps
+  def pre(%TestSteps{} = state) do
+    TestSteps.run_wrapper(state, __MODULE__, :pre, :ok)
+  end
+  def post(%TestSteps{} = state) do
+    TestSteps.run_wrapper(state, __MODULE__, :post, :after_error)
+  end
+end
+
+defmodule ExVisiflow.WrapperBeforeRaise do
+  alias ExVisiflow.TestSteps
+  def pre(%TestSteps{} = state) do
+    TestSteps.run_wrapper(state, __MODULE__, :pre, :ok)
+    {:ok, :this_is_not_the_right_state_type}
+  end
+end
+
+defmodule ExVisiflow.WrapperAfterRaise do
+  alias ExVisiflow.TestSteps
+  def pre(%TestSteps{} = state) do
+    TestSteps.run_wrapper(state, __MODULE__, :pre, :ok)
+  end
+  def post(%TestSteps{} = state) do
+    TestSteps.run_wrapper(state, __MODULE__, :post, :ok)
+    {:ok, :this_is_not_the_right_state_type}
+  end
+end

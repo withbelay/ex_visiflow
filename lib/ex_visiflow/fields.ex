@@ -18,6 +18,7 @@ defmodule ExVisiflow.Fields do
       field(:flow_error_reason, ExVisiflow.Atom, default: :normal)
       field(:wrapper_mod, ExVisiflow.Atom, default: nil)
       field(:wrapper_func, ExVisiflow.Atom, default: nil)
+      field(:wrapper_result, ExVisiflow.Atom, default: nil)
     end
   end
 end

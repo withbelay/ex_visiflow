@@ -23,7 +23,8 @@ defmodule ExVisiflow.FieldsTest do
               step_result: nil,
               flow_error_reason: :normal,
               wrapper_mod: nil,
-              wrapper_func: nil
+              wrapper_func: nil,
+              wrapper_result: nil,
             }} == TestFields.new(%{})
   end
 end
