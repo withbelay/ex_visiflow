@@ -3,11 +3,9 @@ defmodule ExVisiflow.TestSteps do
 
   use TypedEctoSchema
   use ExVisiflow.TypedSchemaHelpers
-  # use ExVisiflow.Fields
 
   @primary_key false
   typed_embedded_schema do
-    # visiflow_fields()
     embeds_one :__visi__, ExVisiflow.Fields
     field(:agent, ExVisiflow.Pid, virtual: true)
     field(:steps_run, :map)
@@ -24,7 +22,7 @@ defmodule ExVisiflow.TestSteps do
     default: [
       {:steps_run, %{}},
       {:execution_order, []},
-      {:__visi__, ExVisiflow.Fields.new!(%{}) |> Map.from_struct() }
+      {:__visi__, %ExVisiflow.Fields{} |> Map.from_struct() }
     ]
   )
 

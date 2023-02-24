@@ -1,6 +1,6 @@
 defmodule ExVisiflow.Fields do
   use TypedEctoSchema
-  use ExVisiflow.TypedSchemaHelpers
+  import Ecto.Changeset
 
   typed_embedded_schema do
     field(:flow_direction, ExVisiflow.Atom, default: :up)
@@ -15,10 +15,8 @@ defmodule ExVisiflow.Fields do
     field(:wrapper_func, ExVisiflow.Atom, default: nil)
   end
 
-  def_new(required: :none)
 
   def changeset(changeset, params) do
-    # IO.inspect(["Visiflow.Fields", changeset, params])
     params = Map.merge(%{step_index: 0, flow_error_reason: :normal, flow_direction: :up}, params)
 
     cast(

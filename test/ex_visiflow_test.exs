@@ -18,22 +18,22 @@ defmodule ExVisiflowTest do
 
   describe "select_step\1" do
     test "when run result is :ok" do
-      state = Fields.new!(%{step_result: :ok, flow_direction: :up})
+      state = %Fields{step_result: :ok, flow_direction: :up}
       assert JustStart.select_step(state).step_func == :run
     end
 
     test "when run result is continue" do
-      state = Fields.new!(%{step_result: :continue, flow_direction: :up})
+      state = %Fields{step_result: :continue, flow_direction: :up}
       assert JustStart.select_step(state).step_func == :run_handle_info
     end
 
     test "when rollback result is :ok" do
-      state = Fields.new!(%{step_result: :ok, flow_direction: :down})
+      state = %Fields{step_result: :ok, flow_direction: :down}
       assert JustStart.select_step(state).step_func == :rollback
     end
 
     test "when rollback result is continue" do
-      state = Fields.new!(%{step_result: :continue, flow_direction: :down})
+      state = %Fields{step_result: :continue, flow_direction: :down}
       assert JustStart.select_step(state).step_func == :rollback_handle_info
     end
   end
