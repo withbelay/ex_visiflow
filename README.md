@@ -130,9 +130,9 @@ end
 - [x] Move to embedded_schema
 - [x] Add step macros
 - [x] Add state type
-- [ ] Add wrapper macros
+- [x] Add wrapper macros
+- [ ] Add on_success and on_fail "wrapper" steps
 - [ ] Add typespecs
-- [ ] Add finalizer - think this is just a wrapper
 - [ ] Can we add protocols or something to the modules? I don't know how to make a Generic behaviour because the statetype varies - Maybe if the behaviour will only care about the %{__visi__: } key in the inputs?
 
 
