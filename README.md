@@ -3,9 +3,11 @@
 **TODO: Add description**
 
 - [x] Remove the application.ex
-- [ ] Add wrappers
-- [ ] Add finalizer
+- [x] Add wrappers
+- [x] Move to embedded_schema
+- [ ] Add finalizer - think this is just a wrapper
 - [x] Add step macros
+- [ ] Add wrapper macros
 - [x] Add state type
 
 
