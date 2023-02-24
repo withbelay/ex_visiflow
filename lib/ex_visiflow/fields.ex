@@ -13,7 +13,6 @@ defmodule ExVisiflow.Fields do
 
     field(:wrapper_mod, ExVisiflow.Atom, default: nil)
     field(:wrapper_func, ExVisiflow.Atom, default: nil)
-    field(:wrapper_result, ExVisiflow.Atom, default: nil)
   end
 
   def_new(required: :none)
@@ -25,7 +24,7 @@ defmodule ExVisiflow.Fields do
     cast(
       changeset,
       params,
-      ~w[flow_direction flow_error_reason step_index step_mod step_func step_result wrapper_mod wrapper_func wrapper_result]a
+      ~w[flow_direction flow_error_reason step_index step_mod step_func step_result wrapper_mod wrapper_func]a
     )
   end
 end
