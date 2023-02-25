@@ -1,4 +1,6 @@
 # ExVisiflow
+![CI Status](https://github.com/withbelay/ex_visiflow/actions/workflows/ci.yml/badge.svg)
+
 
 ExVisiflow is a macro that runs workflows of a very specific character. They process work linearly, and when any error is encountered, they then work backwards in that same manner.
 
