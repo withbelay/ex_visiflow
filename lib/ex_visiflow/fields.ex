@@ -1,4 +1,14 @@
 defmodule ExVisiflow.Fields do
+  @moduledoc """
+  Defines an embedded schema for use in Workflow state containers. Note that it is expected to be mounted like this:
+
+  ```
+  typed_embedded_schema do
+    embeds_one :__visi__, ExVisiflow.Fields
+    # other fields for the workflow
+  end
+  ```
+  """
   use TypedEctoSchema
   import Ecto.Changeset
 

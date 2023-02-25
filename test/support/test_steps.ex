@@ -12,7 +12,7 @@ defmodule ExVisiflow.TestSteps do
     field(:execution_order, {:array, :string})
   end
 
-  def new() do
+  def new do
     {:ok, agent} = StateAgent.start_link()
     new!(%{agent: agent})
   end

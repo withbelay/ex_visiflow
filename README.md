@@ -133,6 +133,7 @@ end
 - [x] Add step macros
 - [x] Add state type
 - [x] Add wrapper macros
+- [ ] Rename Wrappers to Events, and name them on_start, on_step, on_step_complete, on_workflow_success, on_workflow_fail
 - [ ] Add on_success and on_fail "wrapper" steps
 - [ ] Add typespecs
 - [ ] Can we add protocols or something to the modules? I don't know how to make a Generic behaviour because the statetype varies - Maybe if the behaviour will only care about the %{__visi__: } key in the inputs?

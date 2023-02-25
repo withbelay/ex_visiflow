@@ -57,6 +57,7 @@ defmodule ExVisiflow.TypedSchemaHelpers do
     end
   end
 
+  # credo:disable-for-next-line
   defmacro def_new(opts \\ []) do
     quote do
       # if `@req_attrs` already specified then don't override

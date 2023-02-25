@@ -1,5 +1,5 @@
 defmodule StateAgent do
-  def start_link(),
+  def start_link,
     do: Agent.start_link(fn -> %{} end)
 
   def set(pid, state) do
