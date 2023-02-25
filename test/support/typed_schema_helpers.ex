@@ -89,11 +89,13 @@ defmodule ExVisiflow.TypedSchemaHelpers do
       end
 
       def new(attrs) do
-        cast_fields = __MODULE__.__schema__(:fields)
-        |> Kernel.++(__MODULE__.__schema__(:virtual_fields))
-        |> Enum.reject(&(&1 in __MODULE__.__schema__(:embeds)))
+        cast_fields =
+          __MODULE__.__schema__(:fields)
+          |> Kernel.++(__MODULE__.__schema__(:virtual_fields))
+          |> Enum.reject(&(&1 in __MODULE__.__schema__(:embeds)))
 
         attrs = default_fields(attrs, @default_fields)
+
         %__MODULE__{}
         |> change(attrs)
         |> default_fields(@default_fields)
@@ -116,10 +118,11 @@ defmodule ExVisiflow.TypedSchemaHelpers do
 
       def maybe_cast_embeds(changeset, attrs) do
         case __MODULE__.__schema__(:embeds) do
-          [] -> changeset
+          [] ->
+            changeset
+
           embeds ->
             Enum.reduce(embeds, changeset, fn field, changeset -> cast_embed(changeset, field) end)
-
         end
       end
     end
@@ -127,11 +130,11 @@ defmodule ExVisiflow.TypedSchemaHelpers do
 
   def default_fields(attrs, default_fields) do
     # params =
-      List.wrap(default_fields)
-      |> Enum.reduce(attrs, fn
-        {field, {m, f, a}}, attrs -> Map.put_new(attrs, field, apply(m, f, a))
-        {field, value}, attrs -> Map.put_new(attrs, field, value)
-      end)
+    List.wrap(default_fields)
+    |> Enum.reduce(attrs, fn
+      {field, {m, f, a}}, attrs -> Map.put_new(attrs, field, apply(m, f, a))
+      {field, value}, attrs -> Map.put_new(attrs, field, value)
+    end)
 
     # cast(struct, params, Map.keys(params))
   end

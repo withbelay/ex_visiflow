@@ -15,7 +15,6 @@ defmodule ExVisiflow.Fields do
     field(:wrapper_func, ExVisiflow.Atom, default: nil)
   end
 
-
   def changeset(changeset, params) do
     params = Map.merge(%{step_index: 0, flow_error_reason: :normal, flow_direction: :up}, params)
 

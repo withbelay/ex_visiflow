@@ -22,7 +22,7 @@ defmodule ExVisiflow.TestSteps do
     default: [
       {:steps_run, %{}},
       {:execution_order, []},
-      {:__visi__, %ExVisiflow.Fields{} |> Map.from_struct() }
+      {:__visi__, %ExVisiflow.Fields{} |> Map.from_struct()}
     ]
   )
 
@@ -34,6 +34,7 @@ defmodule ExVisiflow.TestSteps do
   def run_step(%TestSteps{} = state, step_module, step_func, step_result) do
     # NOTE - DO NOT CHANGE VALUES VISIFLOW OWNS - It must do that
     full_step = {step_module, step_func}
+
     state =
       state
       |> Map.update(:steps_run, Map.put(%{}, full_step, 1), fn current ->
@@ -104,6 +105,7 @@ end
 
 defmodule ExVisiflow.WrapperOk do
   alias ExVisiflow.TestSteps
+
   def pre(%TestSteps{} = state) do
     TestSteps.run_wrapper(state, __MODULE__, :pre, :ok)
   end
@@ -115,6 +117,7 @@ end
 
 defmodule ExVisiflow.WrapperOk2 do
   alias ExVisiflow.TestSteps
+
   def pre(%TestSteps{} = state) do
     TestSteps.run_wrapper(state, __MODULE__, :pre, :ok)
   end
@@ -126,6 +129,7 @@ end
 
 defmodule ExVisiflow.WrapperBeforeFailure do
   alias ExVisiflow.TestSteps
+
   def pre(%TestSteps{} = state) do
     TestSteps.run_wrapper(state, __MODULE__, :pre, :before_error)
   end
@@ -133,9 +137,11 @@ end
 
 defmodule ExVisiflow.WrapperAfterFailure do
   alias ExVisiflow.TestSteps
+
   def pre(%TestSteps{} = state) do
     TestSteps.run_wrapper(state, __MODULE__, :pre, :ok)
   end
+
   def post(%TestSteps{} = state) do
     TestSteps.run_wrapper(state, __MODULE__, :post, :after_error)
   end
@@ -143,6 +149,7 @@ end
 
 defmodule ExVisiflow.WrapperBeforeRaise do
   alias ExVisiflow.TestSteps
+
   def pre(%TestSteps{} = state) do
     TestSteps.run_wrapper(state, __MODULE__, :pre, :ok)
     {:ok, :this_is_not_the_right_state_type}
@@ -151,9 +158,11 @@ end
 
 defmodule ExVisiflow.WrapperAfterRaise do
   alias ExVisiflow.TestSteps
+
   def pre(%TestSteps{} = state) do
     TestSteps.run_wrapper(state, __MODULE__, :pre, :ok)
   end
+
   def post(%TestSteps{} = state) do
     TestSteps.run_wrapper(state, __MODULE__, :post, :ok)
     {:ok, :this_is_not_the_right_state_type}

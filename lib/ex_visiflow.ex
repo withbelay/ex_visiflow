@@ -57,7 +57,7 @@ defmodule ExVisiflow do
       @doc """
       before_steps and after_steps MUST be synchronous
       """
-      def execute_step(%unquote(state_type){__visi__: %{step_mod: nil}=visi} = state) do
+      def execute_step(%unquote(state_type){__visi__: %{step_mod: nil} = visi} = state) do
         {:stop, Map.get(visi, :flow_error_reason, :normal), state}
       end
 

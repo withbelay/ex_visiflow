@@ -234,7 +234,7 @@ defmodule ExVisiflowTest do
                {ExVisiflow.WrapperOk2, :pre},
                {ExVisiflow.StepOk2, :run},
                {ExVisiflow.WrapperOk, :post},
-               {ExVisiflow.WrapperOk2, :post},
+               {ExVisiflow.WrapperOk2, :post}
              ]
     end
   end
@@ -254,7 +254,7 @@ defmodule ExVisiflowTest do
       flow_state = StateAgent.get(test_steps.agent)
 
       assert flow_state.execution_order == [
-               {ExVisiflow.WrapperBeforeFailure, :pre},
+               {ExVisiflow.WrapperBeforeFailure, :pre}
              ]
     end
   end
@@ -276,7 +276,7 @@ defmodule ExVisiflowTest do
       assert flow_state.execution_order == [
                {ExVisiflow.WrapperAfterFailure, :pre},
                {ExVisiflow.StepOk, :run},
-               {ExVisiflow.WrapperAfterFailure, :post},
+               {ExVisiflow.WrapperAfterFailure, :post}
              ]
     end
   end
@@ -296,7 +296,7 @@ defmodule ExVisiflowTest do
       flow_state = StateAgent.get(test_steps.agent)
 
       assert flow_state.execution_order == [
-               {ExVisiflow.WrapperBeforeRaise, :pre},
+               {ExVisiflow.WrapperBeforeRaise, :pre}
              ]
     end
   end
@@ -318,7 +318,7 @@ defmodule ExVisiflowTest do
       assert flow_state.execution_order == [
                {ExVisiflow.WrapperAfterRaise, :pre},
                {ExVisiflow.StepOk, :run},
-               {ExVisiflow.WrapperAfterRaise, :post},
+               {ExVisiflow.WrapperAfterRaise, :post}
              ]
     end
   end
