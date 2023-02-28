@@ -144,11 +144,11 @@ defmodule ExVisiflow do
       end
 
       def select_step(%Fields{step_result: :continue, flow_direction: :up} = state) do
-        %{state | step_func: :run_handle_info}
+        %{state | step_func: :run_continue}
       end
 
       def select_step(%Fields{step_result: :continue, flow_direction: :down} = state) do
-        %{state | step_func: :rollback_handle_info}
+        %{state | step_func: :rollback_continue}
       end
 
       def select_step(%Fields{} = state), do: %{state | flow_direction: :down, step_func: :rollback}

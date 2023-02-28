@@ -74,8 +74,8 @@ defmodule ExVisiflow.AsyncStepOk do
   @spec run(ExVisiflow.TestSteps.t()) :: {atom(), ExVisiflow.TestSteps.t()}
   def run(%TestSteps{} = state), do: TestSteps.run_step(state, __MODULE__, :run, :continue)
 
-  def run_handle_info(ExVisiflow.AsyncStepOk, state) do
-    TestSteps.run_step(state, __MODULE__, :run_handle_info, :ok)
+  def run_continue(ExVisiflow.AsyncStepOk, state) do
+    TestSteps.run_step(state, __MODULE__, :run_continue, :ok)
   end
 
   def rollback(%TestSteps{} = state), do: TestSteps.run_step(state, __MODULE__, :rollback, :ok)
@@ -85,8 +85,8 @@ defmodule ExVisiflow.AsyncStepOk2 do
   alias ExVisiflow.TestSteps
   def run(%TestSteps{} = state), do: TestSteps.run_step(state, __MODULE__, :run, :continue)
 
-  def run_handle_info(ExVisiflow.AsyncStepOk2, state) do
-    TestSteps.run_step(state, __MODULE__, :run_handle_info, :ok)
+  def run_continue(ExVisiflow.AsyncStepOk2, state) do
+    TestSteps.run_step(state, __MODULE__, :run_continue, :ok)
   end
 
   def rollback(%TestSteps{} = state), do: TestSteps.run_step(state, __MODULE__, :rollback, :ok)
@@ -96,8 +96,8 @@ defmodule ExVisiflow.AsyncStepError do
   alias ExVisiflow.TestSteps
   def run(%TestSteps{} = state), do: TestSteps.run_step(state, __MODULE__, :run, :continue)
 
-  def run_handle_info(ExVisiflow.AsyncStepError, state) do
-    TestSteps.run_step(state, __MODULE__, :run_handle_info, :error)
+  def run_continue(ExVisiflow.AsyncStepError, state) do
+    TestSteps.run_step(state, __MODULE__, :run_continue, :error)
   end
 
   def rollback(%TestSteps{} = state), do: TestSteps.run_step(state, __MODULE__, :rollback, :ok)

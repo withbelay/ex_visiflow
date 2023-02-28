@@ -24,7 +24,7 @@ defmodule ExVisiflowTest do
 
     test "when run result is continue" do
       state = %Fields{step_result: :continue, flow_direction: :up}
-      assert JustStart.select_step(state).step_func == :run_handle_info
+      assert JustStart.select_step(state).step_func == :run_continue
     end
 
     test "when rollback result is :ok" do
@@ -34,7 +34,7 @@ defmodule ExVisiflowTest do
 
     test "when rollback result is continue" do
       state = %Fields{step_result: :continue, flow_direction: :down}
-      assert JustStart.select_step(state).step_func == :rollback_handle_info
+      assert JustStart.select_step(state).step_func == :rollback_continue
     end
   end
 
@@ -147,7 +147,7 @@ defmodule ExVisiflowTest do
       assert flow_state.execution_order == [
                {ExVisiflow.StepOk, :run},
                {ExVisiflow.AsyncStepOk, :run},
-               {ExVisiflow.AsyncStepOk, :run_handle_info}
+               {ExVisiflow.AsyncStepOk, :run_continue}
              ]
     end
   end
@@ -176,9 +176,9 @@ defmodule ExVisiflowTest do
       assert flow_state.execution_order == [
                {ExVisiflow.StepOk, :run},
                {ExVisiflow.AsyncStepOk, :run},
-               {ExVisiflow.AsyncStepOk, :run_handle_info},
+               {ExVisiflow.AsyncStepOk, :run_continue},
                {ExVisiflow.AsyncStepError, :run},
-               {ExVisiflow.AsyncStepError, :run_handle_info},
+               {ExVisiflow.AsyncStepError, :run_continue},
                {ExVisiflow.AsyncStepError, :rollback},
                {ExVisiflow.AsyncStepOk, :rollback},
                {ExVisiflow.StepOk, :rollback}
@@ -197,11 +197,11 @@ defmodule ExVisiflowTest do
       assert flow_state.execution_order == [
                {ExVisiflow.StepOk, :run},
                {ExVisiflow.AsyncStepOk, :run},
-               {ExVisiflow.AsyncStepOk, :run_handle_info},
+               {ExVisiflow.AsyncStepOk, :run_continue},
                {ExVisiflow.AsyncStepError, :run},
 
                # this one is never run
-               # {ExVisiflow.AsyncStepError, :run_handle_info},
+               # {ExVisiflow.AsyncStepError, :run_continue},
 
                {ExVisiflow.AsyncStepError, :rollback},
                {ExVisiflow.AsyncStepOk, :rollback},
