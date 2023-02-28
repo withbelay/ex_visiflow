@@ -75,9 +75,9 @@ defmodule ExVisiflow do
       end
 
       def execute_step(%unquote(state_type){} = state) do
-        with {:ok, state} <- run_wrappers(:pre, state),
+        with {:ok, state} <- run_wrappers(:handle_before_step, state),
              {result, state} when result != :continue <- execute_func(state),
-             {after_result, state} <- run_wrappers(:post, state),
+             {after_result, state} <- run_wrappers(:handle_after_step, state),
              coalesced_result <- coalesce(result, after_result) do
           {coalesced_result, state}
         end
@@ -172,7 +172,7 @@ defmodule ExVisiflow do
       defp get_step(step_index), do: Enum.at(unquote(steps), step_index)
 
       # Execute the wrappers and continue running them so long as the result is always {:ok, state}
-      defp run_wrappers(func, state) when func in [:pre, :post] do
+      defp run_wrappers(func, state) when func in [:handle_before_step, :handle_after_step] do
         wrapper_mods = unquote(wrappers)
 
         result =

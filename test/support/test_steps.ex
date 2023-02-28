@@ -104,67 +104,73 @@ defmodule ExVisiflow.AsyncStepError do
 end
 
 defmodule ExVisiflow.WrapperOk do
+  use ExVisiflow.LifecycleHandler
   alias ExVisiflow.TestSteps
 
-  def pre(%TestSteps{} = state) do
-    TestSteps.run_wrapper(state, __MODULE__, :pre, :ok)
+  def handle_before_step(%TestSteps{} = state) do
+    TestSteps.run_wrapper(state, __MODULE__, :handle_before_step, :ok)
   end
 
-  def post(%TestSteps{} = state) do
-    TestSteps.run_wrapper(state, __MODULE__, :post, :ok)
+  def handle_after_step(%TestSteps{} = state) do
+    TestSteps.run_wrapper(state, __MODULE__, :handle_after_step, :ok)
   end
 end
 
 defmodule ExVisiflow.WrapperOk2 do
+  use ExVisiflow.LifecycleHandler
   alias ExVisiflow.TestSteps
 
-  def pre(%TestSteps{} = state) do
-    TestSteps.run_wrapper(state, __MODULE__, :pre, :ok)
+  def handle_before_step(%TestSteps{} = state) do
+    TestSteps.run_wrapper(state, __MODULE__, :handle_before_step, :ok)
   end
 
-  def post(%TestSteps{} = state) do
-    TestSteps.run_wrapper(state, __MODULE__, :post, :ok)
+  def handle_after_step(%TestSteps{} = state) do
+    TestSteps.run_wrapper(state, __MODULE__, :handle_after_step, :ok)
   end
 end
 
 defmodule ExVisiflow.WrapperBeforeFailure do
+  use ExVisiflow.LifecycleHandler
   alias ExVisiflow.TestSteps
 
-  def pre(%TestSteps{} = state) do
-    TestSteps.run_wrapper(state, __MODULE__, :pre, :before_error)
+  def handle_before_step(%TestSteps{} = state) do
+    TestSteps.run_wrapper(state, __MODULE__, :handle_before_step, :before_error)
   end
 end
 
 defmodule ExVisiflow.WrapperAfterFailure do
+  use ExVisiflow.LifecycleHandler
   alias ExVisiflow.TestSteps
 
-  def pre(%TestSteps{} = state) do
-    TestSteps.run_wrapper(state, __MODULE__, :pre, :ok)
+  def handle_before_step(%TestSteps{} = state) do
+    TestSteps.run_wrapper(state, __MODULE__, :handle_before_step, :ok)
   end
 
-  def post(%TestSteps{} = state) do
-    TestSteps.run_wrapper(state, __MODULE__, :post, :after_error)
+  def handle_after_step(%TestSteps{} = state) do
+    TestSteps.run_wrapper(state, __MODULE__, :handle_after_step, :after_error)
   end
 end
 
 defmodule ExVisiflow.WrapperBeforeRaise do
+  use ExVisiflow.LifecycleHandler
   alias ExVisiflow.TestSteps
 
-  def pre(%TestSteps{} = state) do
-    TestSteps.run_wrapper(state, __MODULE__, :pre, :ok)
+  def handle_before_step(%TestSteps{} = state) do
+    TestSteps.run_wrapper(state, __MODULE__, :handle_before_step, :ok)
     {:ok, :this_is_not_the_right_state_type}
   end
 end
 
 defmodule ExVisiflow.WrapperAfterRaise do
+  use ExVisiflow.LifecycleHandler
   alias ExVisiflow.TestSteps
 
-  def pre(%TestSteps{} = state) do
-    TestSteps.run_wrapper(state, __MODULE__, :pre, :ok)
+  def handle_before_step(%TestSteps{} = state) do
+    TestSteps.run_wrapper(state, __MODULE__, :handle_before_step, :ok)
   end
 
-  def post(%TestSteps{} = state) do
-    TestSteps.run_wrapper(state, __MODULE__, :post, :ok)
+  def handle_after_step(%TestSteps{} = state) do
+    TestSteps.run_wrapper(state, __MODULE__, :handle_after_step, :ok)
     {:ok, :this_is_not_the_right_state_type}
   end
 end

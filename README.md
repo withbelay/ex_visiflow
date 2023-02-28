@@ -92,19 +92,20 @@ Wrappers are functions that must be synchronous. They are intended to run code t
 
 Wrappers can run before and\or after a step's run or rollback function. The semantics are slightly different.
 
-A `pre` function must return :ok, or it will rollback the workflow without ever running the step.
-A `post` function will run after a step, regardless of what the return status of that step was. But like a `pre` step, any return value other than {:ok, state} will rollback the workflow.
+A `handle_before_step` function must return :ok, or it will rollback the workflow without ever running the step.
+A `handle_after_step` function will run after a step, regardless of what the return status of that step was. But like a `handle_before_step` step, any return value other than {:ok, state} will rollback the workflow.
 
 Wrappers in particular are likely to want to know information about the state of the workflow's execution. They can access it with the state's __visi__ struct, which maintains this information. See below.
 ```
 defmodule Company.Wrapper do
-  use ExVisiflow.Wrapper
-  def pre(%Company.Workflow.State{}=state) do
+  use ExVisiflow.LifecycleHandler
+
+  def handle_before_step(%Company.Workflow.State{}=state) do
     # do work intended to happen before every step
     {:ok, state}
   end
 
-  def post(%Company.Workflow.State{}=state) do
+  def handle_after_step(%Company.Workflow.State{}=state) do
     # do work intended to happen after every step
     {:ok, state}
   end
