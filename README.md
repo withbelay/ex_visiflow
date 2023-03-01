@@ -1,6 +1,26 @@
 # WorkflowEx
 ![CI Status](https://github.com/withbelay/ex_visiflow/actions/workflows/ci.yml/badge.svg)
 
+```mermaid
+flowchart TD
+  Start -- initial state --> OnStart
+  OnStart -- ok --> ChooseStep
+  ChooseStep -- step --> RunBeforeSteps
+  RunBeforeSteps -- ok --> RunActualStepSync
+  RunActualStepSync -- ok or error --> RunAfterSteps
+  RunAfterSteps -- error --> SetRollback
+  SetRollback --> ChooseStep
+  RunAfterSteps -- ok --> ChooseStep
+  RunActualStepSync -- continue --> AwaitMsg
+  AwaitMsg -- Msg --> RunActualStepContinue
+  RunActualStepContinue -- ok or error --> RunAfterSteps
+  RunActualStepContinue -- continue --> AwaitMsg
+  ChooseStep -- done -------> WasSuccess
+  WasSuccess -- true --> RunOnSuccess
+  WasSuccess -- false --> RunOnFailure
+  RunOnSuccess --> StopNormal
+  RunOnFailure --> StopNormal
+```
 
 WorkflowEx is a macro that runs workflows of a very specific character. They process work linearly, and when any error is encountered, they then work backwards in that same manner.
 
