@@ -1,4 +1,4 @@
-defmodule ExVisiflow.Atom do
+defmodule WorkflowEx.Atom do
   @moduledoc """
   Allow "atom" as a field type for embedded_schema
 

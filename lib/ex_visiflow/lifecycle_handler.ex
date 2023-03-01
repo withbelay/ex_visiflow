@@ -1,15 +1,15 @@
-defmodule ExVisiflow.LifecycleHandler do
+defmodule WorkflowEx.LifecycleHandler do
   @moduledoc """
   Provides default implementations for the lifecycle of the workflow, and marks it as implementing the appropriate behaviour
   """
-  @callback handle_init(ExVisiflow.visi_state()) :: {:ok | :error | atom(), ExVisiflow.visi_state()}
-  @callback handle_before_step(ExVisiflow.visi_state()) :: {:ok | :error | atom(), ExVisiflow.visi_state()}
-  @callback handle_after_step(ExVisiflow.visi_state()) :: {:ok | :error | atom(), ExVisiflow.visi_state()}
-  @callback handle_success(ExVisiflow.visi_state()) :: {:ok | :error | atom(), ExVisiflow.visi_state()}
-  @callback handle_failure(ExVisiflow.visi_state()) :: {:ok | :error | atom(), ExVisiflow.visi_state()}
+  @callback handle_init(WorkflowEx.visi_state()) :: {:ok | :error | atom(), WorkflowEx.visi_state()}
+  @callback handle_before_step(WorkflowEx.visi_state()) :: {:ok | :error | atom(), WorkflowEx.visi_state()}
+  @callback handle_after_step(WorkflowEx.visi_state()) :: {:ok | :error | atom(), WorkflowEx.visi_state()}
+  @callback handle_success(WorkflowEx.visi_state()) :: {:ok | :error | atom(), WorkflowEx.visi_state()}
+  @callback handle_failure(WorkflowEx.visi_state()) :: {:ok | :error | atom(), WorkflowEx.visi_state()}
   def __using__(_) do
     quote do
-      @behaviour ExVisiflow.LifecycleHandler
+      @behaviour WorkflowEx.LifecycleHandler
 
       @impl true
       def handle_init(state), do: {:ok, state}

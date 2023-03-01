@@ -1,4 +1,4 @@
-defmodule ExVisiflow.TypedSchemaHelpers do
+defmodule WorkflowEx.TypedSchemaHelpers do
   @moduledoc """
   Create `new` and `new!` functions for `typed_embedded_schema` via a `def_new` macro
 

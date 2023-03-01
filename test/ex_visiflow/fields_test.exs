@@ -1,21 +1,21 @@
 defmodule TestFields do
   use TypedEctoSchema
-  use ExVisiflow.TypedSchemaHelpers
+  use WorkflowEx.TypedSchemaHelpers
 
   typed_embedded_schema do
-    embeds_one :__visi__, ExVisiflow.Fields
+    embeds_one :__visi__, WorkflowEx.Fields
   end
 
-  def_new(required: :none, default: [{:__visi__, %ExVisiflow.Fields{} |> Map.from_struct()}])
+  def_new(required: :none, default: [{:__visi__, %WorkflowEx.Fields{} |> Map.from_struct()}])
 end
 
-defmodule ExVisiflow.FieldsTest do
+defmodule WorkflowEx.FieldsTest do
   use ExUnit.Case, async: true
 
   test "when including the visiflow_fields, defaults are provided" do
     assert {:ok,
             %TestFields{
-              __visi__: %ExVisiflow.Fields{
+              __visi__: %WorkflowEx.Fields{
                 step_index: 0,
                 flow_direction: :up,
                 step_mod: nil,

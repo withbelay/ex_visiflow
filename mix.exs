@@ -1,9 +1,9 @@
-defmodule ExVisiflow.MixProject do
+defmodule WorkflowEx.MixProject do
   use Mix.Project
 
   def project do
     [
-      app: :ex_visiflow,
+      app: :workflow_ex,
       version: "0.1.0",
       elixirc_paths: elixirc_paths(Mix.env()),
       elixir: "~> 1.14",

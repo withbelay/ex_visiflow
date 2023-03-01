@@ -1,4 +1,4 @@
-defmodule ExVisiflow.Pid do
+defmodule WorkflowEx.Pid do
   @moduledoc """
   Allow "atom" as a field type for embedded_schema
 

@@ -1,16 +1,16 @@
-defmodule ExVisiflow.Step do
+defmodule WorkflowEx.Step do
   @moduledoc """
   Provides default implementations for step funcs, and marks it as implementing the appropriate behaviour
   """
-  @callback run(ExVisiflow.visi_state()) :: {:ok | :continue | :error | atom(), ExVisiflow.visi_state()}
-  @callback run_continue(ExVisiflow.visi_state(), atom()) ::
-              {:ok | :continue | :error | atom(), ExVisiflow.visi_state()}
-  @callback rollback(ExVisiflow.visi_state()) :: {:ok | :continue | :error | atom(), ExVisiflow.visi_state()}
-  @callback rollback_continue(ExVisiflow.visi_state(), atom()) ::
-              {:ok | :continue | :error | atom(), ExVisiflow.visi_state()}
+  @callback run(WorkflowEx.visi_state()) :: {:ok | :continue | :error | atom(), WorkflowEx.visi_state()}
+  @callback run_continue(WorkflowEx.visi_state(), atom()) ::
+              {:ok | :continue | :error | atom(), WorkflowEx.visi_state()}
+  @callback rollback(WorkflowEx.visi_state()) :: {:ok | :continue | :error | atom(), WorkflowEx.visi_state()}
+  @callback rollback_continue(WorkflowEx.visi_state(), atom()) ::
+              {:ok | :continue | :error | atom(), WorkflowEx.visi_state()}
   def __using__(_) do
     quote do
-      @behaviour ExVisiflow.Step
+      @behaviour WorkflowEx.Step
 
       @impl true
       def run(state), do: {:ok, state}

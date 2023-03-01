@@ -1,8 +1,8 @@
-defmodule ExVisiflow do
+defmodule WorkflowEx do
   @typedoc """
   The fields required for a workflow state to function with Visiflow.
   """
-  @type visi_state() :: %{__visi__: ExVisiflow.Fields.t()}
+  @type visi_state() :: %{__visi__: WorkflowEx.Fields.t()}
 
   defmacro __using__(opts) do
     steps = Keyword.fetch!(opts, :steps)
@@ -23,10 +23,10 @@ defmodule ExVisiflow do
     # credo:disable-for-next-line
     quote location: :keep do
       use GenServer, restart: :transient
-      alias ExVisiflow.Fields
+      alias WorkflowEx.Fields
       require Logger
 
-      @spec start_link(ExVisiflow.visi_state()) :: GenServer.on_start()
+      @spec start_link(WorkflowEx.visi_state()) :: GenServer.on_start()
       def start_link(%unquote(state_type){} = state) do
         GenServer.start_link(__MODULE__, state)
       end
@@ -40,7 +40,7 @@ defmodule ExVisiflow do
 
       def init(_), do: {:stop, :missing_state_fields}
 
-      @spec get_state(pid()) :: ExVisiflow.visi_state()
+      @spec get_state(pid()) :: WorkflowEx.visi_state()
       def get_state(pid), do: GenServer.call(pid, :get_state)
 
       @impl true
@@ -69,7 +69,7 @@ defmodule ExVisiflow do
       @doc """
       before_steps and after_steps MUST be synchronous
       """
-      @spec execute_step(ExVisiflow.visi_state()) :: {:ok | :continue | :error | atom(), ExVisiflow.visi_state()}
+      @spec execute_step(WorkflowEx.visi_state()) :: {:ok | :continue | :error | atom(), WorkflowEx.visi_state()}
       def execute_step(%unquote(state_type){__visi__: %{step_mod: nil} = visi} = state) do
         {:stop, Map.get(visi, :flow_error_reason, :normal), state}
       end
@@ -86,7 +86,7 @@ defmodule ExVisiflow do
       defp coalesce(step_result, :ok), do: step_result
       defp coalesce(:ok, after_result), do: after_result
 
-      @spec execute_func(ExVisiflow.visi_state(), atom()) :: {:ok | :continue | :error | atom, ExVisiflow.visi_state()}
+      @spec execute_func(WorkflowEx.visi_state(), atom()) :: {:ok | :continue | :error | atom, WorkflowEx.visi_state()}
       def execute_func(%unquote(state_type){__visi__: visi} = state, message \\ nil) do
         {result, state} =
           case is_nil(message) do
@@ -104,12 +104,12 @@ defmodule ExVisiflow do
       end
 
       @spec map_step_response_to_genserver_response(
-              {:ok | :continue | atom(), ExVisiflow.visi_state()}
-              | {:stop, :normal | :error | atom(), ExVisiflow.visi_state()}
+              {:ok | :continue | atom(), WorkflowEx.visi_state()}
+              | {:stop, :normal | :error | atom(), WorkflowEx.visi_state()}
             ) ::
-              {:stop, :normal | :error | atom(), ExVisiflow.visi_state()}
-              | {:noreply, ExVisiflow.visi_state()}
-              | {:noreply, ExVisiflow.visi_state(), {:continue, :run}}
+              {:stop, :normal | :error | atom(), WorkflowEx.visi_state()}
+              | {:noreply, WorkflowEx.visi_state()}
+              | {:noreply, WorkflowEx.visi_state(), {:continue, :run}}
       def map_step_response_to_genserver_response(execution_response) do
         case execution_response do
           {:continue, state} ->
@@ -127,7 +127,7 @@ defmodule ExVisiflow do
       @impl true
       def handle_call(:get_state, _from, %unquote(state_type){} = state), do: {:reply, state, state}
 
-      @spec select_step(ExVisiflow.Fields.t()) :: ExVisiflow.Fields.t()
+      @spec select_step(WorkflowEx.Fields.t()) :: WorkflowEx.Fields.t()
       def select_step(%Fields{step_result: nil, flow_direction: :up} = state) do
         # step_result is nil initially
         state = %{state | step_mod: get_step(state.step_index), step_func: :run}

@@ -1,10 +1,10 @@
-defmodule ExVisiflow.Fields do
+defmodule WorkflowEx.Fields do
   @moduledoc """
   Defines an embedded schema for use in Workflow state containers. Note that it is expected to be mounted like this:
 
   ```
   typed_embedded_schema do
-    embeds_one :__visi__, ExVisiflow.Fields
+    embeds_one :__visi__, WorkflowEx.Fields
     # other fields for the workflow
   end
   ```
@@ -13,16 +13,16 @@ defmodule ExVisiflow.Fields do
   import Ecto.Changeset
 
   typed_embedded_schema do
-    field(:flow_direction, ExVisiflow.Atom, default: :up)
-    field(:flow_error_reason, ExVisiflow.Atom, default: :normal)
+    field(:flow_direction, WorkflowEx.Atom, default: :up)
+    field(:flow_error_reason, WorkflowEx.Atom, default: :normal)
 
     field(:step_index, :integer, default: 0)
-    field(:step_mod, ExVisiflow.Atom, default: nil)
-    field(:step_func, ExVisiflow.Atom, default: :run)
-    field(:step_result, ExVisiflow.Atom, default: nil)
+    field(:step_mod, WorkflowEx.Atom, default: nil)
+    field(:step_func, WorkflowEx.Atom, default: :run)
+    field(:step_result, WorkflowEx.Atom, default: nil)
 
-    field(:wrapper_mod, ExVisiflow.Atom, default: nil)
-    field(:wrapper_func, ExVisiflow.Atom, default: nil)
+    field(:wrapper_mod, WorkflowEx.Atom, default: nil)
+    field(:wrapper_func, WorkflowEx.Atom, default: nil)
   end
 
   def changeset(changeset, params) do
