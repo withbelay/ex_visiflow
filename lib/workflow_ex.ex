@@ -20,6 +20,8 @@ defmodule WorkflowEx do
       errant_keys -> raise KeyError, message: errant_keys
     end
 
+
+
     # credo:disable-for-next-line
     quote location: :keep do
       use GenServer, restart: :transient
@@ -35,7 +37,7 @@ defmodule WorkflowEx do
       def init(%unquote(state_type){__visi__: visi} = state) do
         state = %{state | __visi__: select_step(visi)}
 
-        {:ok, state, {:continue, :run}}
+        {:ok, state, {:continue, :run_init}}
       end
 
       def init(_), do: {:stop, :missing_state_fields}
@@ -44,8 +46,13 @@ defmodule WorkflowEx do
       def get_state(pid), do: GenServer.call(pid, :get_state)
 
       @impl true
+      def handle_continue(:run_init, %unquote(state_type){} = state) do
+        run_wrappers(:handle_init, state) |> map_step_response_to_genserver_response
+      end
+
+      @impl true
       def handle_continue(:run, %unquote(state_type){} = state) do
-        execute_step(state) |> map_step_response_to_genserver_response()
+        execute_step_and_handlers(state) |> map_step_response_to_genserver_response()
       end
 
       @impl true
@@ -63,20 +70,22 @@ defmodule WorkflowEx do
 
       @impl true
       def handle_info(message, %unquote(state_type){} = state) do
-        execute_func(state, message) |> map_step_response_to_genserver_response()
+        execute_step_func(state, message)
+        # needs to run the afters for the step that just ran, if continuing
+        |> map_step_response_to_genserver_response()
       end
 
       @doc """
       before_steps and after_steps MUST be synchronous
       """
-      @spec execute_step(WorkflowEx.visi_state()) :: {:ok | :continue | :error | atom(), WorkflowEx.visi_state()}
-      def execute_step(%unquote(state_type){__visi__: %{step_mod: nil} = visi} = state) do
+      @spec execute_step_and_handlers(WorkflowEx.visi_state()) :: {:ok | :continue | :error | atom(), WorkflowEx.visi_state()}
+      def execute_step_and_handlers(%unquote(state_type){__visi__: %{step_mod: nil} = visi} = state) do
         {:stop, Map.get(visi, :flow_error_reason, :normal), state}
       end
 
-      def execute_step(%unquote(state_type){} = state) do
+      def execute_step_and_handlers(%unquote(state_type){} = state) do
         with {:ok, state} <- run_wrappers(:handle_before_step, state),
-             {result, state} when result != :continue <- execute_func(state),
+             {result, state} when result != :continue <- execute_step_func(state),
              {after_result, state} <- run_wrappers(:handle_after_step, state),
              coalesced_result <- coalesce(result, after_result) do
           {coalesced_result, state}
@@ -86,8 +95,8 @@ defmodule WorkflowEx do
       defp coalesce(step_result, :ok), do: step_result
       defp coalesce(:ok, after_result), do: after_result
 
-      @spec execute_func(WorkflowEx.visi_state(), atom()) :: {:ok | :continue | :error | atom, WorkflowEx.visi_state()}
-      def execute_func(%unquote(state_type){__visi__: visi} = state, message \\ nil) do
+      @spec execute_step_func(WorkflowEx.visi_state(), atom()) :: {:ok | :continue | :error | atom, WorkflowEx.visi_state()}
+      def execute_step_func(%unquote(state_type){__visi__: visi} = state, message \\ nil) do
         {result, state} =
           case is_nil(message) do
             true -> apply(visi.step_mod, visi.step_func, [state])
@@ -172,7 +181,7 @@ defmodule WorkflowEx do
       defp get_step(step_index), do: Enum.at(unquote(steps), step_index)
 
       # Execute the wrappers and continue running them so long as the result is always {:ok, state}
-      defp run_wrappers(func, state) when func in [:handle_before_step, :handle_after_step] do
+      defp run_wrappers(func, state) when func in [:handle_init, :handle_before_step, :handle_after_step] do
         wrapper_mods = unquote(wrappers)
 
         result =

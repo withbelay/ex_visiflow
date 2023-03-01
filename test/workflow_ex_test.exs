@@ -40,7 +40,7 @@ defmodule WorkflowExTest do
 
   describe "when init-ing a workflow" do
     test "will continue to the workflow", %{test_steps: test_steps} do
-      assert {:ok, test_steps, {:continue, :run}} == JustStart.init(test_steps)
+      assert {:ok, test_steps, {:continue, :run_init}} == JustStart.init(test_steps)
     end
 
     test "when trying to start a workflow w/ a state that is missing the required fields, halt" do
@@ -55,15 +55,15 @@ defmodule WorkflowExTest do
 
     test "the workflow runs a step, and returns the outcome", %{test_steps: test_steps} do
       {:ok, test_steps, _} = SyncSuccess.init(test_steps)
-      assert {:ok, state} = SyncSuccess.execute_step(test_steps)
+      assert {:ok, state} = SyncSuccess.execute_step_and_handlers(test_steps)
       assert state.steps_run[{WorkflowEx.StepOk, :run}] == 1
       assert state.execution_order == [{WorkflowEx.StepOk, :run}]
 
-      assert {:ok, state} = SyncSuccess.execute_step(state)
+      assert {:ok, state} = SyncSuccess.execute_step_and_handlers(state)
       assert state.steps_run[{WorkflowEx.StepOk2, :run}] == 1
       assert state.execution_order == [{WorkflowEx.StepOk, :run}, {WorkflowEx.StepOk2, :run}]
 
-      assert {:stop, :normal, state} == SyncSuccess.execute_step(state)
+      assert {:stop, :normal, state} == SyncSuccess.execute_step_and_handlers(state)
     end
 
     test "the GenServer workflow runs to completion and stops", %{test_steps: test_steps} do
@@ -89,8 +89,8 @@ defmodule WorkflowExTest do
 
     test "the workflow fails the first step", %{test_steps: test_steps} do
       {:ok, test_steps, _} = SyncFailure.init(test_steps)
-      assert {:ok, state} = SyncFailure.execute_step(test_steps)
-      assert {:error, state} = SyncFailure.execute_step(state)
+      assert {:ok, state} = SyncFailure.execute_step_and_handlers(test_steps)
+      assert {:error, state} = SyncFailure.execute_step_and_handlers(state)
       visi = state.__visi__
       assert state.steps_run[{WorkflowEx.StepError, :run}] == 1
       assert visi.step_result == :error
@@ -320,6 +320,29 @@ defmodule WorkflowExTest do
                {WorkflowEx.StepOk, :run},
                {WorkflowEx.WrapperAfterRaise, :handle_after_step}
              ]
+    end
+  end
+
+  describe "an asynchronous, successful workflow with after steps" do
+    defmodule AsyncSuccessWithWrappers do
+      use WorkflowEx,
+      steps: [WorkflowEx.AsyncStepOk],
+      wrappers: [WorkflowEx.WrapperOk],
+      state_type: WorkflowEx.TestSteps
+    end
+
+    test "the expected steps and wrappers all fire", %{test_steps: test_steps} do
+      assert {:ok, pid} = AsyncSuccessWithWrappers.start_link(test_steps)
+      send(pid, WorkflowEx.AsyncStepOk)
+      assert_receive {:EXIT, ^pid, :normal}
+
+      flow_state = StateAgent.get(test_steps.agent)
+      assert flow_state.execution_order == [
+        {WorkflowEx.WrapperOk, :handle_before_step},
+        {WorkflowEx.AsyncStepOk, :run},
+        {WorkflowEx.AsyncStepOk, :run_continue},
+        {WorkflowEx.WrapperOk, :handle_after_step},
+      ]
     end
   end
 end
