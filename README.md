@@ -3,23 +3,23 @@
 
 ```mermaid
 flowchart TD
-  Start -- initial state --> OnStart
-  OnStart -- ok --> ChooseStep
-  ChooseStep -- step --> RunBeforeSteps
-  RunBeforeSteps -- ok --> RunActualStepSync
-  RunActualStepSync -- ok or error --> RunAfterSteps
-  RunAfterSteps -- error --> SetRollback
-  SetRollback --> ChooseStep
-  RunAfterSteps -- ok --> ChooseStep
-  RunActualStepSync -- continue --> AwaitMsg
-  AwaitMsg -- Msg --> RunActualStepContinue
-  RunActualStepContinue -- ok or error --> RunAfterSteps
-  RunActualStepContinue -- continue --> AwaitMsg
-  ChooseStep -- done -------> WasSuccess
-  WasSuccess -- true --> RunOnSuccess
-  WasSuccess -- false --> RunOnFailure
-  RunOnSuccess --> StopNormal
-  RunOnFailure --> StopNormal
+  Start -- initial state --> on_start
+  on_start -- :ok --> select_step
+  select_step -- step_module/func --> run_before_steps
+  run_before_steps -- :ok --> run_step
+  run_step -- :ok or :error --> run_after_steps
+  run_after_steps -- :error --> set_rollback_mode
+  set_rollback_mode --> select_step
+  run_after_steps -- :ok --> select_step
+  run_step -- :continue --> handle_message_event
+  handle_message_event -- Msg --> run_step_continue
+  run_step_continue -- :ok or :error --> run_after_steps
+  run_step_continue -- :continue --> handle_message_event
+  select_step -- no_steps_remaining -------> was_workflow_successful
+  was_workflow_successful -- true --> run_handle_workflow_success
+  was_workflow_successful -- false --> run_handle_workflow_failure
+  run_handle_workflow_success --> StopNormal
+  run_handle_workflow_failure --> StopNormal
 ```
 
 WorkflowEx is a macro that runs workflows of a very specific character. They process work linearly, and when any error is encountered, they then work backwards in that same manner.
