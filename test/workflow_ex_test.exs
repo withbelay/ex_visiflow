@@ -398,9 +398,9 @@ defmodule WorkflowExTest do
       flow_state = StateAgent.get(test_steps.agent)
 
       assert flow_state.execution_order == [
-        {WorkflowEx.WrapperInitOk, :handle_init},
-        {WorkflowEx.StepOk, :run}
-      ]
+               {WorkflowEx.WrapperInitOk, :handle_init},
+               {WorkflowEx.StepOk, :run}
+             ]
     end
   end
 
@@ -430,20 +430,21 @@ defmodule WorkflowExTest do
     end
 
     test "tries to run handle_workflow_success and logs the error", %{test_steps: test_steps} do
-      {_, log} = CaptureLog.with_log(fn ->
-        assert {:ok, pid} = SyncHandleSuccessWrapperFailure.start_link(test_steps)
+      {_, log} =
+        CaptureLog.with_log(fn ->
+          assert {:ok, pid} = SyncHandleSuccessWrapperFailure.start_link(test_steps)
 
-        assert_receive {:EXIT, ^pid, :normal}
-      end)
+          assert_receive {:EXIT, ^pid, :normal}
+        end)
 
       assert log =~ "handle_workflow_success/1 did not run successfully"
 
       flow_state = StateAgent.get(test_steps.agent)
 
       assert flow_state.execution_order == [
-        {WorkflowEx.StepOk, :run},
-        {WorkflowEx.WrapperHandleSuccessError, :handle_workflow_success}
-      ]
+               {WorkflowEx.StepOk, :run},
+               {WorkflowEx.WrapperHandleSuccessError, :handle_workflow_success}
+             ]
     end
   end
 
@@ -462,10 +463,10 @@ defmodule WorkflowExTest do
       flow_state = StateAgent.get(test_steps.agent)
 
       assert flow_state.execution_order == [
-        {WorkflowEx.StepError, :run},
-        {WorkflowEx.StepError, :rollback},
-        {WorkflowEx.WrapperHandleFailureOk, :handle_workflow_failure}
-      ]
+               {WorkflowEx.StepError, :run},
+               {WorkflowEx.StepError, :rollback},
+               {WorkflowEx.WrapperHandleFailureOk, :handle_workflow_failure}
+             ]
     end
   end
 
@@ -477,21 +478,22 @@ defmodule WorkflowExTest do
     end
 
     test "tries to run handle_workflow_failure and logs the error", %{test_steps: test_steps} do
-      {_, log} = CaptureLog.with_log(fn ->
-        assert {:ok, pid} = SyncHandleFailureWrapperFailure.start_link(test_steps)
+      {_, log} =
+        CaptureLog.with_log(fn ->
+          assert {:ok, pid} = SyncHandleFailureWrapperFailure.start_link(test_steps)
 
-        assert_receive {:EXIT, ^pid, :error}
-      end)
+          assert_receive {:EXIT, ^pid, :error}
+        end)
 
       assert log =~ "handle_workflow_failure/1 did not run successfully"
 
       flow_state = StateAgent.get(test_steps.agent)
 
       assert flow_state.execution_order == [
-        {WorkflowEx.StepError, :run},
-        {WorkflowEx.StepError, :rollback},
-        {WorkflowEx.WrapperHandleFailureError, :handle_workflow_failure}
-      ]
+               {WorkflowEx.StepError, :run},
+               {WorkflowEx.StepError, :rollback},
+               {WorkflowEx.WrapperHandleFailureError, :handle_workflow_failure}
+             ]
     end
   end
 end
