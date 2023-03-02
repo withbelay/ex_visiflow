@@ -36,7 +36,6 @@ defmodule Company.Workflow do
       Company.Step2,
       Company.Step3
     ],
-    state_type: Company.Workflow.State,
     wrappers: [Company.Wrapper]
 end
 ```

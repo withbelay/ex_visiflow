@@ -119,7 +119,7 @@ defmodule WorkflowExTest do
 
   describe "a synchronous, successful workflow with no wrapper steps or finalizer" do
     defmodule SyncSuccess do
-      use WorkflowEx, steps: [WorkflowEx.StepOk, WorkflowEx.StepOk2], state_type: WorkflowEx.TestSteps
+      use WorkflowEx, steps: [WorkflowEx.StepOk, WorkflowEx.StepOk2]
     end
 
     test "the GenServer workflow runs to completion and stops", %{test_steps: test_steps} do
@@ -134,8 +134,7 @@ defmodule WorkflowExTest do
   describe "a synchronous, failing workflow with no wrapper steps or finalizer" do
     defmodule SyncFailure do
       use WorkflowEx,
-        steps: [WorkflowEx.StepOk, WorkflowEx.StepError],
-        state_type: WorkflowEx.TestSteps
+        steps: [WorkflowEx.StepOk, WorkflowEx.StepError]
     end
 
     test "the workflow rollsback", %{test_steps: test_steps} do
@@ -159,8 +158,7 @@ defmodule WorkflowExTest do
         steps: [
           WorkflowEx.StepOk,
           WorkflowEx.AsyncStepOk
-        ],
-        state_type: WorkflowEx.TestSteps
+        ]
     end
 
     test "the workflow runs, pauses, and then succeeds when the message is received", %{test_steps: test_steps} do
@@ -199,8 +197,7 @@ defmodule WorkflowExTest do
           WorkflowEx.StepOk,
           WorkflowEx.AsyncStepOk,
           WorkflowEx.AsyncStepError
-        ],
-        state_type: WorkflowEx.TestSteps
+        ]
     end
 
     test "the workflow runs, pauses, the async step fails, and reverses direction", %{test_steps: test_steps} do
@@ -254,7 +251,6 @@ defmodule WorkflowExTest do
     defmodule SyncWrapperSuccess do
       use WorkflowEx,
         steps: [WorkflowEx.StepOk, WorkflowEx.StepOk2],
-        state_type: WorkflowEx.TestSteps,
         wrappers: [WorkflowEx.WrapperOk, WorkflowEx.WrapperOk2]
     end
 
@@ -283,7 +279,6 @@ defmodule WorkflowExTest do
     defmodule SyncWrapperBeforeFailure do
       use WorkflowEx,
         steps: [WorkflowEx.StepOk, WorkflowEx.StepOk2],
-        state_type: WorkflowEx.TestSteps,
         wrappers: [WorkflowEx.WrapperBeforeFailure]
     end
 
@@ -303,7 +298,6 @@ defmodule WorkflowExTest do
     defmodule SyncWrapperAfterFailure do
       use WorkflowEx,
         steps: [WorkflowEx.StepOk, WorkflowEx.StepOk2],
-        state_type: WorkflowEx.TestSteps,
         wrappers: [WorkflowEx.WrapperAfterFailure]
     end
 
@@ -328,7 +322,6 @@ defmodule WorkflowExTest do
     defmodule SyncWrapperBeforeRaise do
       use WorkflowEx,
         steps: [WorkflowEx.StepOk, WorkflowEx.StepOk2],
-        state_type: WorkflowEx.TestSteps,
         wrappers: [WorkflowEx.WrapperBeforeRaise]
     end
 
@@ -348,7 +341,6 @@ defmodule WorkflowExTest do
     defmodule SyncWrapperAfterRaise do
       use WorkflowEx,
         steps: [WorkflowEx.StepOk, WorkflowEx.StepOk2],
-        state_type: WorkflowEx.TestSteps,
         wrappers: [WorkflowEx.WrapperAfterRaise]
     end
 
@@ -372,8 +364,7 @@ defmodule WorkflowExTest do
     defmodule AsyncSuccessWithWrappers do
       use WorkflowEx,
         steps: [WorkflowEx.AsyncStepOk],
-        wrappers: [WorkflowEx.WrapperOk],
-        state_type: WorkflowEx.TestSteps
+        wrappers: [WorkflowEx.WrapperOk]
     end
 
     test "the expected steps and wrappers all fire", %{test_steps: test_steps} do
@@ -396,7 +387,6 @@ defmodule WorkflowExTest do
     defmodule SuccessInitWrapper do
       use WorkflowEx,
         steps: [WorkflowEx.StepOk],
-        state_type: WorkflowEx.TestSteps,
         wrappers: [WorkflowEx.WrapperInitOk]
     end
 
@@ -418,7 +408,6 @@ defmodule WorkflowExTest do
     defmodule FailureInitWrapper do
       use WorkflowEx,
         steps: [WorkflowEx.StepOk],
-        state_type: WorkflowEx.TestSteps,
         wrappers: [WorkflowEx.WrapperInitError]
     end
 
@@ -437,7 +426,6 @@ defmodule WorkflowExTest do
     defmodule SyncHandleSuccessWrapperFailure do
       use WorkflowEx,
         steps: [WorkflowEx.StepOk],
-        state_type: WorkflowEx.TestSteps,
         wrappers: [WorkflowEx.WrapperHandleSuccessError]
     end
 
@@ -463,7 +451,6 @@ defmodule WorkflowExTest do
     defmodule SyncHandleFailureWrapperSuccess do
       use WorkflowEx,
         steps: [WorkflowEx.StepError],
-        state_type: WorkflowEx.TestSteps,
         wrappers: [WorkflowEx.WrapperHandleFailureOk]
     end
 
@@ -486,7 +473,6 @@ defmodule WorkflowExTest do
     defmodule SyncHandleFailureWrapperFailure do
       use WorkflowEx,
         steps: [WorkflowEx.StepError],
-        state_type: WorkflowEx.TestSteps,
         wrappers: [WorkflowEx.WrapperHandleFailureError]
     end
 

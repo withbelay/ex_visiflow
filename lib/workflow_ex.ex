@@ -8,13 +8,12 @@ defmodule WorkflowEx do
   @type flow_state() :: %{__flow__: WorkflowEx.Fields.t()}
   defmacro __using__(opts) do
     steps = Keyword.fetch!(opts, :steps)
-    # state_type = Keyword.fetch!(opts, :state_type)
     wrappers = Keyword.get(opts, :wrappers, [])
 
     # this code verifies that only the options expected are provided, to help catch errors
     sorted_keys = opts |> Keyword.keys() |> Enum.sort()
 
-    ~w(state_type steps wrappers)a
+    ~w(steps wrappers)a
     |> List.myers_difference(sorted_keys)
     |> Keyword.get(:ins)
     |> case do
