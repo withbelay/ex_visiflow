@@ -250,7 +250,6 @@ defmodule WorkflowEx do
 
       defp reduce_handlers(mods, func, state) do
         Enum.reduce_while(mods, state, fn mod, state ->
-
           case apply(mod, func, [state]) do
             {:ok, state} when is_flow_state(state) ->
               {:cont, state}

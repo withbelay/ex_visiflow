@@ -23,10 +23,8 @@ defmodule WorkflowExTest do
     @second_step 1
 
     [
-      {:handle_init, :ok, :up, @first_step, {:continue, :execute_step},
-       %{step_index: @first_step, step_func: :run}},
-      {:handle_init, :ok, :up, @last_step, {:continue, :execute_step},
-       %{step_index: @last_step, step_func: :run}},
+      {:handle_init, :ok, :up, @first_step, {:continue, :execute_step}, %{step_index: @first_step, step_func: :run}},
+      {:handle_init, :ok, :up, @last_step, {:continue, :execute_step}, %{step_index: @last_step, step_func: :run}},
       {:handle_init, :er, :up, @first_step, {:stop, :er}, %{flow_error_reason: :er}},
       {:handle_before_step, :er, :up, @first_step, {:continue, :handle_workflow_failure},
        %{flow_direction: :down, flow_error_reason: :er}},
@@ -39,12 +37,10 @@ defmodule WorkflowExTest do
        }},
       {:handle_before_step, :er, :down, @last_step, {:continue, :execute_step},
        %{step_index: @first_step, step_func: :rollback}},
-      {:step, :ok, :up, @first_step, {:continue, :execute_step},
-       %{step_index: @second_step, step_func: :run}},
+      {:step, :ok, :up, @first_step, {:continue, :execute_step}, %{step_index: @second_step, step_func: :run}},
       {:step, :ok, :up, @last_step, {:continue, :handle_workflow_success}, %{}},
       {:step, :ok, :down, @first_step, {:continue, :handle_workflow_failure}, %{}},
-      {:step, :ok, :down, @second_step, {:continue, :execute_step},
-       %{step_index: @first_step, step_func: :rollback}},
+      {:step, :ok, :down, @second_step, {:continue, :execute_step}, %{step_index: @first_step, step_func: :rollback}},
       {:step, :continue, :up, @first_step, :noreply, %{step_index: @first_step, step_func: :run_continue}},
       {:step, :continue, :down, @first_step, :noreply, %{step_index: @first_step, step_func: :rollback_continue}},
       {:step, :er, :up, @first_step, {:continue, :execute_step},
