@@ -24,9 +24,9 @@ defmodule WorkflowExTest do
 
     [
       {:handle_init, :ok, :up, @first_step, {:continue, :execute_step},
-       %{step_mod: WorkflowEx.StepOk, step_index: @first_step, step_func: :run}},
+       %{step_index: @first_step, step_func: :run}},
       {:handle_init, :ok, :up, @last_step, {:continue, :execute_step},
-       %{step_mod: WorkflowEx.StepOk2, step_index: @last_step, step_func: :run}},
+       %{step_index: @last_step, step_func: :run}},
       {:handle_init, :er, :up, @first_step, {:stop, :er}, %{flow_error_reason: :er}},
       {:handle_before_step, :er, :up, @first_step, {:continue, :handle_workflow_failure},
        %{flow_direction: :down, flow_error_reason: :er}},
@@ -35,24 +35,22 @@ defmodule WorkflowExTest do
          flow_direction: :down,
          step_index: @first_step,
          step_func: :rollback,
-         step_mod: WorkflowEx.StepOk,
          flow_error_reason: :er
        }},
       {:handle_before_step, :er, :down, @last_step, {:continue, :execute_step},
-       %{step_index: @first_step, step_func: :rollback, step_mod: WorkflowEx.StepOk}},
+       %{step_index: @first_step, step_func: :rollback}},
       {:step, :ok, :up, @first_step, {:continue, :execute_step},
-       %{step_index: @second_step, step_func: :run, step_mod: WorkflowEx.StepOk2}},
+       %{step_index: @second_step, step_func: :run}},
       {:step, :ok, :up, @last_step, {:continue, :handle_workflow_success}, %{}},
       {:step, :ok, :down, @first_step, {:continue, :handle_workflow_failure}, %{}},
       {:step, :ok, :down, @second_step, {:continue, :execute_step},
-       %{step_index: @first_step, step_func: :rollback, step_mod: WorkflowEx.StepOk}},
+       %{step_index: @first_step, step_func: :rollback}},
       {:step, :continue, :up, @first_step, :noreply, %{step_index: @first_step, step_func: :run_continue}},
       {:step, :continue, :down, @first_step, :noreply, %{step_index: @first_step, step_func: :rollback_continue}},
       {:step, :er, :up, @first_step, {:continue, :execute_step},
        %{
          step_index: @first_step,
          step_func: :rollback,
-         step_mod: WorkflowEx.StepOk,
          flow_direction: :down,
          flow_error_reason: :er
        }},
@@ -61,7 +59,6 @@ defmodule WorkflowExTest do
        %{
          step_index: @first_step,
          step_func: :rollback,
-         step_mod: WorkflowEx.StepOk,
          flow_direction: :down,
          flow_error_reason: :er
        }},
@@ -82,8 +79,7 @@ defmodule WorkflowExTest do
               lifecycle_src: @src,
               last_result: @result,
               flow_direction: @direction,
-              step_index: @current_step,
-              step_mod: Enum.at([WorkflowEx.StepOk, WorkflowEx.StepOk2], @current_step)
+              step_index: @current_step
             }
           })
 

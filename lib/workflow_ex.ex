@@ -108,7 +108,7 @@ defmodule WorkflowEx do
           do: route(lifecycle_src, result, direction, step_index, state)
 
       def route(:handle_init, :ok, :up, current_step, state) when is_flow_state(state) do
-        state = Fields.merge(state, %{step_func: :run, step_mod: get_step(current_step)})
+        state = Fields.merge(state, %{step_func: :run})
         {:noreply, state, {:continue, :execute_step}}
       end
 
@@ -128,16 +128,14 @@ defmodule WorkflowEx do
             flow_error_reason: error,
             flow_direction: :down,
             step_func: :rollback,
-            step_index: step_index - 1,
-            step_mod: get_step(step_index - 1)
+            step_index: step_index - 1
           })
 
         {:noreply, state, {:continue, :execute_step}}
       end
 
       def route(:handle_before_step, error, :down, step_index, state) when is_flow_state(state) do
-        state =
-          Fields.merge(state, %{step_index: step_index - 1, step_mod: get_step(step_index - 1), step_func: :rollback})
+        state = Fields.merge(state, %{step_index: step_index - 1, step_func: :rollback})
 
         {:noreply, state, {:continue, :execute_step}}
       end
@@ -150,7 +148,7 @@ defmodule WorkflowEx do
             {:noreply, state, {:continue, :handle_workflow_success}}
 
           step_mod ->
-            state = Fields.merge(state, %{step_func: :run, step_mod: step_mod, step_index: step_index})
+            state = Fields.merge(state, %{step_func: :run, step_index: step_index})
             {:noreply, state, {:continue, :execute_step}}
         end
       end
@@ -159,9 +157,7 @@ defmodule WorkflowEx do
         do: {:noreply, state, {:continue, :handle_workflow_failure}}
 
       def route(:step, :ok, :down, step_index, state) do
-        step_index = Fields.get(state, :step_index) - 1
-        step_mod = get_step(step_index)
-        state = Fields.merge(state, %{step_func: :rollback, step_mod: step_mod, step_index: step_index})
+        state = Fields.merge(state, %{step_func: :rollback, step_index: step_index - 1})
         {:noreply, state, {:continue, :execute_step}}
       end
 
@@ -198,82 +194,82 @@ defmodule WorkflowEx do
       end
 
       @spec execute_inits(WorkflowEx.flow_state()) :: {:ok | atom, WorkflowEx.flow_state()}
-      def execute_inits(state), do: WorkflowEx.execute_handlers(:handle_init, unquote(wrappers), state)
+      def execute_inits(state), do: execute_handlers(:handle_init, state)
       @spec execute_befores(WorkflowEx.flow_state()) :: {:ok | atom, WorkflowEx.flow_state()}
-      def execute_befores(state), do: WorkflowEx.execute_handlers(:handle_before_step, unquote(wrappers), state)
+      def execute_befores(state), do: execute_handlers(:handle_before_step, state)
       @spec execute_workflow_successes(WorkflowEx.flow_state()) :: {:ok | atom, WorkflowEx.flow_state()}
       def execute_workflow_successes(state),
-        do: WorkflowEx.execute_handlers(:handle_workflow_success, unquote(wrappers), state)
+        do: execute_handlers(:handle_workflow_success, state)
 
       @spec execute_workflow_failures(WorkflowEx.flow_state()) :: {:ok | atom, WorkflowEx.flow_state()}
       def execute_workflow_failures(state),
-        do: WorkflowEx.execute_handlers(:handle_workflow_failure, unquote(wrappers), state)
+        do: execute_handlers(:handle_workflow_failure, state)
 
       @spec execute_step(WorkflowEx.flow_state()) :: {:ok | :continue | atom, WorkflowEx.flow_state()}
-      def execute_step(state), do: WorkflowEx.execute_step(state, [state], unquote(wrappers))
+      def execute_step(state), do: do_execute_step(state, [state])
+
       @spec execute_step(WorkflowEx.flow_state(), atom) :: {:ok | :continue | atom, WorkflowEx.flow_state()}
-      def execute_step(state, message), do: WorkflowEx.execute_step(state, [message, state], unquote(wrappers))
+      def execute_step(state, message), do: do_execute_step(state, [message, state])
+
+      defp do_execute_step(state, args) do
+        %{step_index: step_index, step_func: func} = Fields.take(state, [:step_index, :step_func])
+        mod = get_step(step_index)
+
+        with {step_response, state} when step_response != :continue <- apply(mod, func, args),
+             {after_response, state} <- execute_handlers(:handle_after_step, state) do
+          response = take_first_error(step_response, after_response)
+          state = Fields.merge(state, %{lifecycle_src: :step, last_result: response})
+          {response, state}
+        else
+          {:continue, state} ->
+            state = Fields.merge(state, %{lifecycle_src: :step, last_result: :continue})
+            {:continue, state}
+        end
+      end
+
+      # Execute the wrappers and continue running them so long as the result is always {:ok, state}
+      def execute_handlers(func, state)
+          when is_flow_state(state) and
+                 func in [
+                   :handle_init,
+                   :handle_before_step,
+                   :handle_after_step,
+                   :handle_workflow_success,
+                   :handle_workflow_failure
+                 ] do
+        case reduce_handlers(unquote(wrappers), func, state) do
+          flow_state when is_flow_state(flow_state) ->
+            flow_state = Fields.merge(flow_state, %{lifecycle_src: func, last_result: :ok})
+            {:ok, flow_state}
+
+          {error, flow_state} ->
+            flow_state = Fields.merge(flow_state, %{lifecycle_src: func, last_result: error})
+            {error, flow_state}
+        end
+      end
+
+      defp reduce_handlers(mods, func, state) do
+        Enum.reduce_while(mods, state, fn mod, state ->
+
+          case apply(mod, func, [state]) do
+            {:ok, state} when is_flow_state(state) ->
+              {:cont, state}
+
+            {result, %{__flow__: _} = state} when is_atom(result) ->
+              {:halt, {result, state}}
+
+            {_, _} ->
+              {:halt, {:invalid_return_value, state}}
+          end
+        end)
+      end
 
       # Enum.at(-1) gets the last element in the list, which is not what I want.
       defp get_step(step_index) when step_index < 0, do: nil
       defp get_step(step_index), do: Enum.at(unquote(steps), step_index)
+
+      def take_first_error(step_result, :ok), do: step_result
+      def take_first_error(:ok, after_result), do: after_result
     end
   end
-
-  def execute_step(state, args, handlers) do
-    %{step_mod: mod, step_func: func} = Fields.take(state, [:step_mod, :step_func])
-
-    with {step_response, state} when step_response != :continue <- apply(mod, func, args),
-         {after_response, state} <- execute_handlers(:handle_after_step, handlers, state) do
-      response = take_first_error(step_response, after_response)
-      state = Fields.merge(state, %{lifecycle_src: :step, last_result: response})
-      {response, state}
-    else
-      {:continue, state} ->
-        state = Fields.merge(state, %{lifecycle_src: :step, last_result: :continue})
-        {:continue, state}
-    end
-  end
-
-  # Execute the wrappers and continue running them so long as the result is always {:ok, state}
-  def execute_handlers(func, mods, state)
-      when is_flow_state(state) and
-             func in [
-               :handle_init,
-               :handle_before_step,
-               :handle_after_step,
-               :handle_workflow_success,
-               :handle_workflow_failure
-             ] do
-    case reduce_handlers(mods, func, state) do
-      flow_state when is_flow_state(flow_state) ->
-        flow_state = Fields.merge(flow_state, %{lifecycle_src: func, last_result: :ok})
-        {:ok, flow_state}
-
-      {error, flow_state} ->
-        flow_state = Fields.merge(flow_state, %{lifecycle_src: func, last_result: error})
-        {error, flow_state}
-    end
-  end
-
-  defp reduce_handlers(mods, func, state) do
-    Enum.reduce_while(mods, state, fn mod, state ->
-      # state = %{state | __flow__: set_current_wrapper(state.__flow__, mod, func)}
-
-      case apply(mod, func, [state]) do
-        {:ok, state} when is_flow_state(state) ->
-          # state = %{state | __flow__: clear_current_wrapper(state.__flow__)}
-          {:cont, state}
-
-        {result, %{__flow__: _} = state} when is_atom(result) ->
-          {:halt, {result, state}}
-
-        {_, _} ->
-          {:halt, {:invalid_return_value, state}}
-      end
-    end)
-  end
-
-  def take_first_error(step_result, :ok), do: step_result
-  def take_first_error(:ok, after_result), do: after_result
 end

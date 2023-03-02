@@ -18,7 +18,6 @@ defmodule WorkflowEx.FieldsTest do
               __flow__: %WorkflowEx.Fields{
                 step_index: 0,
                 flow_direction: :up,
-                step_mod: nil,
                 step_func: :run,
                 flow_error_reason: :normal
               }

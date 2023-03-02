@@ -24,7 +24,6 @@ defmodule WorkflowEx.Fields do
 
     # router sets these, and it's continue param determines the wrapper
     field(:step_index, :integer, default: 0)
-    field(:step_mod, WorkflowEx.Atom, default: nil)
     field(:step_func, WorkflowEx.Atom, default: :run)
   end
 
@@ -34,7 +33,7 @@ defmodule WorkflowEx.Fields do
     cast(
       changeset,
       params,
-      ~w[flow_direction flow_error_reason step_index step_mod step_func lifecycle_src last_result]a
+      ~w[flow_direction flow_error_reason step_index step_func lifecycle_src last_result]a
     )
   end
 

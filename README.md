@@ -117,7 +117,6 @@ end
 | flow_direction | atom | :up | up = running, down = rolling back|
 | flow_error_reason | atom | :normal | When workflow stops, it records a reason. :normal means the workflow succeeded. Any error in run is returned here |
 | step_index | integer | 0 | Keeps track of what step the workflow is on |
-| step_mod | atom | nil | step module being executed |
 | step_func | atom | :run | step function being executed |
 
 ## Installation
