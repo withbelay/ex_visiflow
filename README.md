@@ -119,22 +119,6 @@ end
 | step_index | integer | 0 | Keeps track of what step the workflow is on |
 | step_mod | atom | nil | step module being executed |
 | step_func | atom | :run | step function being executed |
-| step_result | atom | nil | result of the last step |
-
-
-**TODO: Add description**
-
-- [x] Remove the application.ex
-- [x] Add wrappers
-- [x] Move to embedded_schema
-- [x] Add step macros
-- [x] Add state type
-- [x] Add wrapper macros
-- [ ] Rename Wrappers to Events, and name them on_start, on_step, on_step_complete, on_workflow_success, on_workflow_fail
-- [ ] Add on_success and on_fail "wrapper" steps
-- [ ] Add typespecs
-- [ ] Can we add protocols or something to the modules? I don't know how to make a Generic behaviour because the statetype varies - Maybe if the behaviour will only care about the %{__visi__: } key in the inputs?
-
 
 ## Installation
 
@@ -146,7 +130,7 @@ by adding `ex_visiflow` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:ex_visiflow, "~> 0.1.0"}
+    {:workflow_ex, "~> 0.1.0"}
   ]
 end
 ```
