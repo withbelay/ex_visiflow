@@ -1,27 +1,6 @@
 # WorkflowEx
 ![CI Status](https://github.com/withbelay/ex_visiflow/actions/workflows/ci.yml/badge.svg)
 
-```mermaid
-flowchart TD
-  Start -- initial state --> on_start
-  on_start -- :ok --> select_step
-  select_step -- step_module/func --> run_before_steps
-  run_before_steps -- :ok --> run_step
-  run_step -- :ok or :error --> run_after_steps
-  run_after_steps -- :error --> set_rollback_mode
-  set_rollback_mode --> select_step
-  run_after_steps -- :ok --> select_step
-  run_step -- :continue --> handle_message_event
-  handle_message_event -- Msg --> run_step_continue
-  run_step_continue -- :ok or :error --> run_after_steps
-  run_step_continue -- :continue --> handle_message_event
-  select_step -- no_steps_remaining -------> was_workflow_successful
-  was_workflow_successful -- true --> run_handle_workflow_success
-  was_workflow_successful -- false --> run_handle_workflow_failure
-  run_handle_workflow_success --> StopNormal
-  run_handle_workflow_failure --> StopNormal
-```
-
 WorkflowEx is a macro that runs workflows of a very specific character. They process work linearly, and when any error is encountered, they then work backwards in that same manner.
 
 Workflow steps can be synchronous or asynchronous. Workflow steps that are asynchronous will return :continue, and then expected to subscribe to whatever events are needed to complete their task.
