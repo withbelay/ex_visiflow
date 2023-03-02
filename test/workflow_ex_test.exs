@@ -13,38 +13,83 @@ defmodule WorkflowExTest do
   end
 
   defmodule JustStart do
-    use WorkflowEx, steps: [], state_type: WorkflowEx.TestSteps
+    use WorkflowEx, steps: [WorkflowEx.StepOk, WorkflowEx.StepOk2]
   end
 
-  describe "select_step\1" do
-    test "when run result is :ok" do
-      state = %Fields{step_result: :ok, flow_direction: :up}
-      assert JustStart.select_step(state).step_func == :run
-    end
+  describe "route\4" do
+    @first_step 0
+    @last_step 1
+    @second_step 1
 
-    test "when run result is continue" do
-      state = %Fields{step_result: :continue, flow_direction: :up}
-      assert JustStart.select_step(state).step_func == :run_continue
-    end
+    [
+      {:handle_init, :ok, :up, @first_step, {:continue, :execute_step}, %{step_mod: WorkflowEx.StepOk, step_index: @first_step, step_func: :run}},
+      {:handle_init, :ok, :up, @last_step, {:continue, :execute_step}, %{step_mod: WorkflowEx.StepOk2, step_index: @last_step, step_func: :run}},
+      {:handle_init, :er, :up, @first_step, {:stop, :er}, %{}},
 
-    test "when rollback result is :ok" do
-      state = %Fields{step_result: :ok, flow_direction: :down}
-      assert JustStart.select_step(state).step_func == :rollback
-    end
+      {:handle_before, :er, :up, @first_step, {:continue, :handle_workflow_failure}, %{flow_direction: :down} },
+      {:handle_before, :er, :up, @last_step, {:continue, :execute_step}, %{flow_direction: :down, step_index: @first_step, step_func: :rollback, step_mod: WorkflowEx.StepOk} },
 
-    test "when rollback result is continue" do
-      state = %Fields{step_result: :continue, flow_direction: :down}
-      assert JustStart.select_step(state).step_func == :rollback_continue
-    end
+      {:step, :ok, :up, @first_step, {:continue, :execute_step}, %{step_index: @second_step, step_func: :run, step_mod: WorkflowEx.StepOk2} },
+      {:step, :ok, :up, @last_step, {:continue, :handle_workflow_success}, %{}},
+
+      {:step, :ok, :down, @first_step, {:continue, :handle_workflow_failure}, %{}},
+      {:step, :ok, :down, @second_step, {:continue, :execute_step}, %{step_index: @first_step, step_func: :rollback, step_mod: WorkflowEx.StepOk} },
+
+      {:step, :continue, :up, @first_step, :noreply, %{step_index: @first_step, step_func: :run_continue} },
+      {:step, :continue, :down, @first_step, :noreply, %{step_index: @first_step, step_func: :rollback_continue} },
+
+      {:step, :er, :up, @first_step, {:continue, :execute_step}, %{step_index: @first_step, step_func: :rollback, step_mod: WorkflowEx.StepOk, flow_direction: :down}},
+      {:step, :er, :down, @first_step, {:stop, :er}, %{}},
+
+      # {:rollback, :er, :up, @first_step, {:continue, :execute_step}, %{step_index: @first_step, step_func: :rollback, step_mod: WorkflowEx.StepOk, flow_direction: :down}},
+      # {:rollback, :er, :down, @first_step, {:continue, :execute_step}, %{}}
+
+    ]
+    |> Enum.map(fn {src, result, direction, current_step, expected_response, expected_state} ->
+      @src src
+      @result result
+      @direction direction
+      @current_step current_step
+      @expected_response expected_response
+      @expected_state expected_state
+
+      test "src: #{src}, result: #{result}, dir: #{direction}, step: #{if current_step == @first_step, do: "first", else: "last"} should return #{inspect(expected_response)}}" do
+        test_steps =
+          TestSteps.new!(%{
+            __flow__: %{
+              lifecycle_src: @src,
+              last_result: @result,
+              flow_direction: @direction,
+              step_index: @current_step,
+              step_mod: Enum.at([WorkflowEx.StepOk, WorkflowEx.StepOk2], @current_step)
+            }
+          })
+        updated_state = case @expected_response do
+          {:continue, step} ->
+            assert {:noreply, updated_state, {:continue, ^step}} = JustStart.route(test_steps)
+            updated_state
+
+          {:stop, error} ->
+            assert {:stop, ^error, updated_state} = JustStart.route(test_steps)
+            updated_state
+
+          :noreply ->
+            assert {:noreply, updated_state} = JustStart.route(test_steps)
+            updated_state
+        end
+        assert @expected_state = Fields.take(updated_state, Map.keys(@expected_state))
+
+      end
+    end)
   end
 
   describe "when init-ing a workflow" do
     test "will continue to the workflow", %{test_steps: test_steps} do
-      assert {:ok, test_steps, {:continue, :run_init}} == JustStart.init(test_steps)
+      assert {:ok, test_steps, {:continue, :handle_init}} == JustStart.init(test_steps)
     end
 
     test "when trying to start a workflow w/ a state that is missing the required fields, halt" do
-      assert {:stop, :missing_state_fields} == JustStart.init(%{})
+      assert {:stop, :missing_flow_fields} == JustStart.init(%{})
     end
   end
 
@@ -326,9 +371,9 @@ defmodule WorkflowExTest do
   describe "an asynchronous, successful workflow with after steps" do
     defmodule AsyncSuccessWithWrappers do
       use WorkflowEx,
-      steps: [WorkflowEx.AsyncStepOk],
-      wrappers: [WorkflowEx.WrapperOk],
-      state_type: WorkflowEx.TestSteps
+        steps: [WorkflowEx.AsyncStepOk],
+        wrappers: [WorkflowEx.WrapperOk],
+        state_type: WorkflowEx.TestSteps
     end
 
     test "the expected steps and wrappers all fire", %{test_steps: test_steps} do
@@ -337,12 +382,13 @@ defmodule WorkflowExTest do
       assert_receive {:EXIT, ^pid, :normal}
 
       flow_state = StateAgent.get(test_steps.agent)
+
       assert flow_state.execution_order == [
-        {WorkflowEx.WrapperOk, :handle_before_step},
-        {WorkflowEx.AsyncStepOk, :run},
-        {WorkflowEx.AsyncStepOk, :run_continue},
-        {WorkflowEx.WrapperOk, :handle_after_step},
-      ]
+               {WorkflowEx.WrapperOk, :handle_before_step},
+               {WorkflowEx.AsyncStepOk, :run},
+               {WorkflowEx.AsyncStepOk, :run_continue},
+               {WorkflowEx.WrapperOk, :handle_after_step}
+             ]
     end
   end
 end

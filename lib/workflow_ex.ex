@@ -2,11 +2,13 @@ defmodule WorkflowEx do
   @typedoc """
   The fields required for a workflow state to function with Visiflow.
   """
-  @type visi_state() :: %{__visi__: WorkflowEx.Fields.t()}
+  alias WorkflowEx.Fields
+  import WorkflowEx.Fields, only: [is_flow_state: 1]
 
+  @type flow_state() :: %{__flow__: WorkflowEx.Fields.t()}
   defmacro __using__(opts) do
     steps = Keyword.fetch!(opts, :steps)
-    state_type = Keyword.fetch!(opts, :state_type)
+    # state_type = Keyword.fetch!(opts, :state_type)
     wrappers = Keyword.get(opts, :wrappers, [])
 
     # this code verifies that only the options expected are provided, to help catch errors
@@ -16,198 +18,224 @@ defmodule WorkflowEx do
     |> List.myers_difference(sorted_keys)
     |> Keyword.get(:ins)
     |> case do
-      nil -> :ok
-      errant_keys -> raise KeyError, message: errant_keys
+      nil ->
+        :ok
+
+      errant_keys ->
+        raise KeyError, message: "Unexpected Keys: #{Enum.join(errant_keys, ",")}"
     end
 
-
-
-    # credo:disable-for-next-line
     quote location: :keep do
       use GenServer, restart: :transient
-      alias WorkflowEx.Fields
+      import WorkflowEx.Fields, only: [is_flow_state: 1]
       require Logger
 
       @spec start_link(WorkflowEx.visi_state()) :: GenServer.on_start()
-      def start_link(%unquote(state_type){} = state) do
+      def start_link(state) when is_flow_state(state) do
         GenServer.start_link(__MODULE__, state)
       end
 
       @impl true
-      def init(%unquote(state_type){__visi__: visi} = state) do
-        state = %{state | __visi__: select_step(visi)}
-
-        {:ok, state, {:continue, :run_init}}
+      def init(state) when is_flow_state(state) do
+        {:ok, state, {:continue, :handle_init}}
       end
 
-      def init(_), do: {:stop, :missing_state_fields}
-
-      @spec get_state(pid()) :: WorkflowEx.visi_state()
-      def get_state(pid), do: GenServer.call(pid, :get_state)
+      def init(_), do: {:stop, :missing_flow_fields}
 
       @impl true
-      def handle_continue(:run_init, %unquote(state_type){} = state) do
-        run_wrappers(:handle_init, state) |> map_step_response_to_genserver_response
-      end
-
-      @impl true
-      def handle_continue(:run, %unquote(state_type){} = state) do
-        execute_step_and_handlers(state) |> map_step_response_to_genserver_response()
-      end
-
-      @impl true
-      def handle_info({:rollback, reason}, %unquote(state_type){} = state) do
-        visi =
-          state.__visi__
-          |> Map.put(:step_result, reason)
-          |> maybe_save_ultimate_flow_error(reason)
-          |> select_step()
-
-        state = %{state | __visi__: visi}
-
-        {:noreply, state, {:continue, :run}}
-      end
-
-      @impl true
-      def handle_info(message, %unquote(state_type){} = state) do
-        execute_step_func(state, message)
-        # needs to run the afters for the step that just ran, if continuing
-        |> map_step_response_to_genserver_response()
-      end
-
-      @doc """
-      before_steps and after_steps MUST be synchronous
-      """
-      @spec execute_step_and_handlers(WorkflowEx.visi_state()) :: {:ok | :continue | :error | atom(), WorkflowEx.visi_state()}
-      def execute_step_and_handlers(%unquote(state_type){__visi__: %{step_mod: nil} = visi} = state) do
-        {:stop, Map.get(visi, :flow_error_reason, :normal), state}
-      end
-
-      def execute_step_and_handlers(%unquote(state_type){} = state) do
-        with {:ok, state} <- run_wrappers(:handle_before_step, state),
-             {result, state} when result != :continue <- execute_step_func(state),
-             {after_result, state} <- run_wrappers(:handle_after_step, state),
-             coalesced_result <- coalesce(result, after_result) do
-          {coalesced_result, state}
-        end
-      end
-
-      defp coalesce(step_result, :ok), do: step_result
-      defp coalesce(:ok, after_result), do: after_result
-
-      @spec execute_step_func(WorkflowEx.visi_state(), atom()) :: {:ok | :continue | :error | atom, WorkflowEx.visi_state()}
-      def execute_step_func(%unquote(state_type){__visi__: visi} = state, message \\ nil) do
-        {result, state} =
-          case is_nil(message) do
-            true -> apply(visi.step_mod, visi.step_func, [state])
-            false -> apply(visi.step_mod, visi.step_func, [message, state])
-          end
-
-        visi =
-          state.__visi__
-          |> Map.put(:step_result, result)
-          |> maybe_save_ultimate_flow_error(result)
-          |> select_step()
-
-        {result, %{state | __visi__: visi}}
-      end
-
-      @spec map_step_response_to_genserver_response(
-              {:ok | :continue | atom(), WorkflowEx.visi_state()}
-              | {:stop, :normal | :error | atom(), WorkflowEx.visi_state()}
-            ) ::
-              {:stop, :normal | :error | atom(), WorkflowEx.visi_state()}
-              | {:noreply, WorkflowEx.visi_state()}
-              | {:noreply, WorkflowEx.visi_state(), {:continue, :run}}
-      def map_step_response_to_genserver_response(execution_response) do
-        case execution_response do
-          {:continue, state} ->
-            {:noreply, state}
-
-          {:stop, reason, state} ->
-            {:stop, reason, state}
-
-          {result, state} ->
-            # the result's impact is already reflected in the state
-            {:noreply, state, {:continue, :run}}
+      def handle_continue(:execute_step, state) do
+        with {:ok, state} <- execute_befores(state),
+             {response, state} <- execute_step(state) do
+          route(state)
+        else
+          {_before_error, state} -> route(state)
         end
       end
 
       @impl true
-      def handle_call(:get_state, _from, %unquote(state_type){} = state), do: {:reply, state, state}
-
-      @spec select_step(WorkflowEx.Fields.t()) :: WorkflowEx.Fields.t()
-      def select_step(%Fields{step_result: nil, flow_direction: :up} = state) do
-        # step_result is nil initially
-        state = %{state | step_mod: get_step(state.step_index), step_func: :run}
+      def handle_continue(:handle_init, state) do
+        {_result, state} = execute_inits(state)
+        route(state)
       end
 
-      def select_step(%Fields{step_result: :ok, flow_direction: :up} = state) do
-        step_index = state.step_index + 1
-        state = %{state | step_index: step_index, step_mod: get_step(step_index), step_func: :run}
+      @impl true
+      def handle_continue(:handle_workflow_success, state) do
+        {result, state} = execute_workflow_successes(state)
+        route(state)
       end
 
-      def select_step(%Fields{step_result: :ok, flow_direction: :down} = state) do
-        step_index = state.step_index - 1
-        state = %{state | step_index: step_index, step_mod: get_step(step_index), step_func: :rollback}
+      @impl true
+      # If I am already rolling back, and this comes in, I need to ensure it is ignored
+      def handle_info({:trigger_rollback, reason}, state) do
+        Fields.merge(state, %{flow_direction: :down, last_result: reason, lifecycle_src: :rollback})
+        |> route()
       end
 
-      def select_step(%Fields{step_result: :continue, flow_direction: :up} = state) do
-        %{state | step_func: :run_continue}
+      @impl true
+      def handle_info(message, state) do
+        {_response, state} = execute_step(state, message)
+        route(state)
       end
 
-      def select_step(%Fields{step_result: :continue, flow_direction: :down} = state) do
-        %{state | step_func: :rollback_continue}
+      def route(
+            %{
+              __flow__: %Fields{
+                lifecycle_src: lifecycle_src,
+                last_result: result,
+                flow_direction: direction,
+                step_index: step_index
+              }
+            } = state
+          ),
+          do: route(lifecycle_src, result, direction, step_index, state)
+
+      def route(:handle_init, :ok, :up, current_step, state) when is_flow_state(state) do
+        state = Fields.merge(state, %{step_func: :run, step_mod: get_step(current_step)})
+        {:noreply, state, {:continue, :execute_step}}
       end
 
-      def select_step(%Fields{} = state), do: %{state | flow_direction: :down, step_func: :rollback}
+      def route(:handle_init, error, :up, _current_step, state) when is_flow_state(state),
+        do: {:stop, error, state}
 
-      # move to the Visiflow.Fields macro
-      defp set_step_result(%Fields{} = state, reason) do
-        %{state | step_result: reason}
+      def route(:handle_before, error, _, 0, state) when is_flow_state(state) do
+        state = Fields.merge(state, %{flow_direction: :down})
+        {:noreply, state, {:continue, :handle_workflow_failure}}
       end
 
-      # If we're flowing forward, and get a result that is not ok or continue, then we need
-      # to save that result to the flow_error_reason, because we're about to rollback
-      defp maybe_save_ultimate_flow_error(%Fields{flow_direction: :up} = state, result)
-           when result not in ~w(ok continue)a do
-        %{state | flow_error_reason: result}
+      def route(:handle_before, error, _, step_index, state) when is_flow_state(state) do
+        state =
+          Fields.merge(state, %{
+            flow_direction: :down,
+            step_func: :rollback,
+            step_index: step_index - 1,
+            step_mod: get_step(step_index - 1)
+          })
+
+        {:noreply, state, {:continue, :execute_step}}
       end
 
-      defp maybe_save_ultimate_flow_error(%Fields{} = state, _reason), do: state
+      def route(:step, :ok, :up, step_index, state) do
+        step_index = Fields.get(state, :step_index) + 1
+
+        case get_step(step_index) do
+          nil ->
+            {:noreply, state, {:continue, :handle_workflow_success}}
+
+          step_mod ->
+            state = Fields.merge(state, %{step_func: :run, step_mod: step_mod, step_index: step_index})
+            {:noreply, state, {:continue, :execute_step}}
+        end
+      end
+
+      def route(:step, :ok, :down, 0, state),
+        do: {:noreply, state, {:continue, :handle_workflow_failure}}
+
+      def route(:step, :ok, :down, step_index, state) do
+        step_index = Fields.get(state, :step_index) - 1
+        step_mod = get_step(step_index)
+        state = Fields.merge(state, %{step_func: :rollback, step_mod: step_mod, step_index: step_index})
+        {:noreply, state, {:continue, :execute_step}}
+      end
+
+      def route(:step, :continue, :up, _step_index, state) do
+        updated_state = Fields.merge(state, %{step_func: :run_continue})
+        {:noreply, updated_state}
+      end
+
+      def route(:step, :continue, :down, _step_index, state) do
+        updated_state = Fields.merge(state, %{step_func: :rollback_continue})
+        {:noreply, updated_state}
+      end
+
+      def route(:step, error, :up, _step_index, state) do
+        updated_state = Fields.merge(state, %{step_func: :rollback, flow_direction: :down})
+        {:noreply, updated_state, {:continue, :execute_step}}
+      end
+
+      def route(:step, error, :down, _step_index, state), do: {:stop, error, state}
+
+      def route(arg1, arg2, arg3, arg4, arg5) do
+        IO.inspect([arg1, arg2, arg3, arg4, arg5], label: "catch all")
+        raise ArgumentError, "No Route Func Matched"
+      end
+
+      @spec execute_inits(WorkflowEx.flow_state()) :: {:ok | atom, WorkflowEx.flow_state()}
+      def execute_inits(state), do: WorkflowEx.execute_handlers(:handle_init, unquote(wrappers), state)
+      @spec execute_befores(WorkflowEx.flow_state()) :: {:ok | atom, WorkflowEx.flow_state()}
+      def execute_befores(state), do: WorkflowEx.execute_handlers(:handle_before_step, unquote(wrappers), state)
+      @spec execute_workflow_successes(WorkflowEx.flow_state()) :: {:ok | atom, WorkflowEx.flow_state()}
+      def execute_workflow_successes(state),
+        do: WorkflowEx.execute_handlers(:handle_workflow_success, unquote(wrappers), state)
+
+      @spec execute_workflow_failures(WorkflowEx.flow_state()) :: {:ok | atom, WorkflowEx.flow_state()}
+      def execute_workflow_failures(state),
+        do: WorkflowEx.execute_handlers(:handle_workflow_failure, unquote(wrappers), state)
+
+      @spec execute_step(WorkflowEx.flow_state()) :: {:ok | :continue | atom, WorkflowEx.flow_state()}
+      def execute_step(state), do: WorkflowEx.execute_step(state, [state], unquote(wrappers))
+      @spec execute_step(WorkflowEx.flow_state(), atom) :: {:ok | :continue | atom, WorkflowEx.flow_state()}
+      def execute_step(state, message), do: WorkflowEx.execute_step(state, [message, state], unquote(wrappers))
 
       # Enum.at(-1) gets the last element in the list, which is not what I want.
       defp get_step(step_index) when step_index < 0, do: nil
       defp get_step(step_index), do: Enum.at(unquote(steps), step_index)
-
-      # Execute the wrappers and continue running them so long as the result is always {:ok, state}
-      defp run_wrappers(func, state) when func in [:handle_init, :handle_before_step, :handle_after_step] do
-        wrapper_mods = unquote(wrappers)
-
-        result =
-          Enum.reduce_while(wrapper_mods, state, fn mod, state ->
-            state = %{state | __visi__: set_current_wrapper(state.__visi__, mod, func)}
-
-            case apply(mod, func, [state]) do
-              {_, invalid_state} = invalid_response when not is_struct(invalid_state, unquote(state_type)) ->
-                {:halt, {:stop, :invalid_return_value, state}}
-
-              {:ok, state} ->
-                state = %{state | __visi__: clear_current_wrapper(state.__visi__)}
-                {:cont, state}
-
-              {result, state} when is_atom(result) ->
-                {:halt, {:stop, result, state}}
-            end
-          end)
-
-        if is_struct(result, unquote(state_type)), do: {:ok, result}, else: result
-      end
-
-      # State must track the wrapper_mod and func. These helpers allow the func above to remain
-      # at a consistent level of abstraction
-      defp set_current_wrapper(%Fields{} = fields, mod, func), do: %{fields | wrapper_mod: mod, wrapper_func: func}
-      defp clear_current_wrapper(%Fields{} = fields), do: %{fields | wrapper_mod: nil, wrapper_func: nil}
     end
   end
+
+  def execute_step(state, args, handlers) do
+    %{step_mod: mod, step_func: func} = Fields.take(state, [:step_mod, :step_func])
+
+    with {step_response, state} when step_response != :continue <- apply(mod, func, args),
+         {after_response, state} <- execute_handlers(:handle_after_step, handlers, state) do
+      response = take_first_error(step_response, after_response)
+      state = Fields.merge(state, %{lifecycle_src: :step, last_result: response})
+      {response, state}
+    else
+      {:continue, state} -> {:continue, state}
+    end
+  end
+
+  # Execute the wrappers and continue running them so long as the result is always {:ok, state}
+  def execute_handlers(func, mods, state)
+      when is_flow_state(state) and
+             func in [
+               :handle_init,
+               :handle_before_step,
+               :handle_after_step,
+               :handle_workflow_success,
+               :handle_workflow_failure
+             ] do
+    case reduce_handlers(mods, func, state) do
+      flow_state when is_flow_state(flow_state) ->
+        flow_state = Fields.merge(flow_state, %{lifecycle_src: func, last_result: :ok})
+        {:ok, flow_state}
+      result -> result
+    end
+  end
+
+  defp reduce_handlers(mods, func, state) do
+    Enum.reduce_while(mods, state, fn mod, state ->
+      state = %{state | __flow__: set_current_wrapper(state.__flow__, mod, func)}
+
+      case apply(mod, func, [state]) do
+        {:ok, state} ->
+          state = %{state | __flow__: clear_current_wrapper(state.__flow__)}
+          {:cont, state}
+
+        {result, %{__flow__: _} = state} when is_atom(result) ->
+          {:halt, {:stop, result, state}}
+
+        {_, _} ->
+          {:halt, {:stop, :invalid_return_value, state}}
+      end
+    end)
+  end
+
+  def take_first_error(step_result, :ok), do: step_result
+  def take_first_error(:ok, after_result), do: after_result
+
+  # State must track the wrapper_mod and func. These helpers allow the func above to remain
+  # at a consistent level of abstraction
+  defp set_current_wrapper(%Fields{} = fields, mod, func), do: %{fields | wrapper_mod: mod, wrapper_func: func}
+  defp clear_current_wrapper(%Fields{} = fields), do: %{fields | wrapper_mod: nil, wrapper_func: nil}
 end

@@ -7,6 +7,7 @@ defmodule WorkflowEx.TestSteps do
   @primary_key false
   typed_embedded_schema do
     embeds_one :__visi__, WorkflowEx.Fields
+    embeds_one :__flow__, WorkflowEx.Fields
     field(:agent, WorkflowEx.Pid, virtual: true)
     field(:steps_run, :map)
     field(:execution_order, {:array, :string})
@@ -22,7 +23,8 @@ defmodule WorkflowEx.TestSteps do
     default: [
       {:steps_run, %{}},
       {:execution_order, []},
-      {:__visi__, %WorkflowEx.Fields{} |> Map.from_struct()}
+      {:__visi__, %WorkflowEx.Fields{} |> Map.from_struct()},
+      {:__flow__, %WorkflowEx.Fields{} |> Map.from_struct()}
     ]
   )
 
