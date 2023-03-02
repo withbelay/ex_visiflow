@@ -53,7 +53,7 @@ We use Ecto, and TypedEctoSchema's wrapper to define the fields required for Wor
 defmodule Company.Workflow.State do
   use TypedEctoSchema
   typed_embedded_schema do
-    embed_one :__visi__, WorkflowEx.Fields
+    embed_one :__flow__, WorkflowEx.Fields
     # Add fields used by the workflow steps
   end
 end

@@ -137,7 +137,9 @@ defmodule WorkflowEx do
       end
 
       def route(:handle_before_step, error, :down, step_index, state) when is_flow_state(state) do
-        state = Fields.merge(state, %{step_index: step_index - 1, step_mod: get_step(step_index - 1), step_func: :rollback})
+        state =
+          Fields.merge(state, %{step_index: step_index - 1, step_mod: get_step(step_index - 1), step_func: :rollback})
+
         {:noreply, state, {:continue, :execute_step}}
       end
 

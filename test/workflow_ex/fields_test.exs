@@ -3,10 +3,10 @@ defmodule TestFields do
   use WorkflowEx.TypedSchemaHelpers
 
   typed_embedded_schema do
-    embeds_one :__visi__, WorkflowEx.Fields
+    embeds_one :__flow__, WorkflowEx.Fields
   end
 
-  def_new(required: :none, default: [{:__visi__, %WorkflowEx.Fields{} |> Map.from_struct()}])
+  def_new(required: :none, default: [{:__flow__, %WorkflowEx.Fields{} |> Map.from_struct()}])
 end
 
 defmodule WorkflowEx.FieldsTest do
@@ -15,7 +15,7 @@ defmodule WorkflowEx.FieldsTest do
   test "when including the visiflow_fields, defaults are provided" do
     assert {:ok,
             %TestFields{
-              __visi__: %WorkflowEx.Fields{
+              __flow__: %WorkflowEx.Fields{
                 step_index: 0,
                 flow_direction: :up,
                 step_mod: nil,

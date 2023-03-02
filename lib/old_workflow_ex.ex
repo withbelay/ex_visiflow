@@ -19,8 +19,6 @@ defmodule OldWorkflowEx do
       errant_keys -> raise KeyError, message: errant_keys
     end
 
-
-
     # credo:disable-for-next-line
     quote location: :keep do
       use GenServer, restart: :transient
@@ -77,7 +75,8 @@ defmodule OldWorkflowEx do
       @doc """
       before_steps and after_steps MUST be synchronous
       """
-      @spec execute_step_and_handlers(WorkflowEx.visi_state()) :: {:ok | :continue | :error | atom(), WorkflowEx.visi_state()}
+      @spec execute_step_and_handlers(WorkflowEx.visi_state()) ::
+              {:ok | :continue | :error | atom(), WorkflowEx.visi_state()}
       def execute_step_and_handlers(%unquote(state_type){__visi__: %{step_mod: nil} = visi} = state) do
         {:stop, Map.get(visi, :flow_error_reason, :normal), state}
       end
@@ -94,7 +93,8 @@ defmodule OldWorkflowEx do
       defp coalesce(step_result, :ok), do: step_result
       defp coalesce(:ok, after_result), do: after_result
 
-      @spec execute_step_func(WorkflowEx.visi_state(), atom()) :: {:ok | :continue | :error | atom, WorkflowEx.visi_state()}
+      @spec execute_step_func(WorkflowEx.visi_state(), atom()) ::
+              {:ok | :continue | :error | atom, WorkflowEx.visi_state()}
       def execute_step_func(%unquote(state_type){__visi__: visi} = state, message \\ nil) do
         {result, state} =
           case is_nil(message) do

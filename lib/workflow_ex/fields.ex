@@ -4,7 +4,7 @@ defmodule WorkflowEx.Fields do
 
   ```
   typed_embedded_schema do
-    embeds_one :__visi__, WorkflowEx.Fields
+    embeds_one :__flow__, WorkflowEx.Fields
     # other fields for the workflow
   end
   ```
@@ -44,7 +44,7 @@ defmodule WorkflowEx.Fields do
   end
 
   def merge(state, dest) when is_flow_state(state) do
-    updated_flow = Map.merge(state.__flow__,  dest)
+    updated_flow = Map.merge(state.__flow__, dest)
     %{state | __flow__: updated_flow}
   end
 
