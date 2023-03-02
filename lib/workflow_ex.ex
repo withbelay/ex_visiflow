@@ -194,7 +194,6 @@ defmodule WorkflowEx do
       end
 
       def route(arg1, arg2, arg3, arg4, arg5) do
-        IO.inspect([arg1, arg2, arg3, arg4, arg5], label: "catch all")
         raise ArgumentError, "No Route Func Matched: #{inspect([arg1, arg2, arg3, arg4, arg5])}"
       end
 
