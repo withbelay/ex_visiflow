@@ -21,9 +21,7 @@ defmodule WorkflowEx.FieldsTest do
                 step_mod: nil,
                 step_func: :run,
                 step_result: nil,
-                flow_error_reason: :normal,
-                wrapper_mod: nil,
-                wrapper_func: nil
+                flow_error_reason: :normal
               }
             }} == TestFields.new(%{})
   end

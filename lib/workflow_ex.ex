@@ -260,11 +260,11 @@ defmodule WorkflowEx do
 
   defp reduce_handlers(mods, func, state) do
     Enum.reduce_while(mods, state, fn mod, state ->
-      state = %{state | __flow__: set_current_wrapper(state.__flow__, mod, func)}
+      # state = %{state | __flow__: set_current_wrapper(state.__flow__, mod, func)}
 
       case apply(mod, func, [state]) do
         {:ok, state} when is_flow_state(state) ->
-          state = %{state | __flow__: clear_current_wrapper(state.__flow__)}
+          # state = %{state | __flow__: clear_current_wrapper(state.__flow__)}
           {:cont, state}
 
         {result, %{__flow__: _} = state} when is_atom(result) ->
@@ -278,9 +278,4 @@ defmodule WorkflowEx do
 
   def take_first_error(step_result, :ok), do: step_result
   def take_first_error(:ok, after_result), do: after_result
-
-  # State must track the wrapper_mod and func. These helpers allow the func above to remain
-  # at a consistent level of abstraction
-  defp set_current_wrapper(%Fields{} = fields, mod, func), do: %{fields | wrapper_mod: mod, wrapper_func: func}
-  defp clear_current_wrapper(%Fields{} = fields), do: %{fields | wrapper_mod: nil, wrapper_func: nil}
 end

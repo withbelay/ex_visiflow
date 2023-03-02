@@ -142,8 +142,6 @@ end
 | step_mod | atom | nil | step module being executed |
 | step_func | atom | :run | step function being executed |
 | step_result | atom | nil | result of the last step |
-| wrapper_mod | atom | nil | wrapper module being executed |
-| wrapper_func | atom | nil | wrapper func being executed |
 
 
 **TODO: Add description**

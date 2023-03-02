@@ -28,9 +28,6 @@ defmodule WorkflowEx.Fields do
     field(:step_func, WorkflowEx.Atom, default: :run)
 
     field(:step_result, WorkflowEx.Atom, default: nil)
-
-    field(:wrapper_mod, WorkflowEx.Atom, default: nil)
-    field(:wrapper_func, WorkflowEx.Atom, default: nil)
   end
 
   def changeset(changeset, params) do
@@ -39,7 +36,7 @@ defmodule WorkflowEx.Fields do
     cast(
       changeset,
       params,
-      ~w[flow_direction flow_error_reason step_index step_mod step_func step_result wrapper_mod wrapper_func lifecycle_src last_result]a
+      ~w[flow_direction flow_error_reason step_index step_mod step_func step_result lifecycle_src last_result]a
     )
   end
 
