@@ -33,10 +33,6 @@ defmodule WorkflowEx.Fields do
     field(:wrapper_func, WorkflowEx.Atom, default: nil)
   end
 
-  # def new(attrs) do
-  #   struct!(__MODULE__, attrs)
-  # end
-
   def changeset(changeset, params) do
     params = Map.merge(%{step_index: 0, flow_error_reason: :normal, flow_direction: :up}, params)
 

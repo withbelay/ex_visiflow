@@ -49,6 +49,7 @@ defmodule WorkflowEx do
           route(state)
         else
           {_before_error, state} -> route(state)
+          {:stop, :invalid_return_value, state} -> {:stop, :invalid_return_value, state}
         end
       end
 
@@ -61,13 +62,31 @@ defmodule WorkflowEx do
       @impl true
       def handle_continue(:handle_workflow_success, state) do
         {result, state} = execute_workflow_successes(state)
-        route(state)
+
+        if result != :ok do
+          Logger.error("handle_workflow_success/1 did not run successfully", error: result)
+        end
+
+        {:stop, :normal, state}
+      end
+
+      @impl true
+      def handle_continue(:handle_workflow_failure, state) do
+        {result, state} = execute_workflow_failures(state)
+
+        if result != :ok do
+          Logger.error("handle_workflow_failure/1 did not run successfully", error: result)
+        end
+
+        {:stop, Fields.get(state, :flow_error_reason), state}
       end
 
       @impl true
       # If I am already rolling back, and this comes in, I need to ensure it is ignored
-      def handle_info({:trigger_rollback, reason}, state) do
-        Fields.merge(state, %{flow_direction: :down, last_result: reason, lifecycle_src: :rollback})
+      def handle_info({:rollback, reason}, state) do
+        Logger.info("Received message to rollback", reason: reason)
+
+        Fields.merge(state, %{last_result: reason, lifecycle_src: :rollback})
         |> route()
       end
 
@@ -94,23 +113,31 @@ defmodule WorkflowEx do
         {:noreply, state, {:continue, :execute_step}}
       end
 
-      def route(:handle_init, error, :up, _current_step, state) when is_flow_state(state),
-        do: {:stop, error, state}
+      def route(:handle_init, error, :up, _current_step, state) when is_flow_state(state) do
+        state = Fields.merge(state, %{flow_error_reason: error})
+        {:stop, error, state}
+      end
 
-      def route(:handle_before, error, _, 0, state) when is_flow_state(state) do
-        state = Fields.merge(state, %{flow_direction: :down})
+      def route(:handle_before_step, error, :up, 0, state) when is_flow_state(state) do
+        state = Fields.merge(state, %{flow_direction: :down, flow_error_reason: error, step_func: :rollback})
         {:noreply, state, {:continue, :handle_workflow_failure}}
       end
 
-      def route(:handle_before, error, _, step_index, state) when is_flow_state(state) do
+      def route(:handle_before_step, error, :up, step_index, state) when is_flow_state(state) do
         state =
           Fields.merge(state, %{
+            flow_error_reason: error,
             flow_direction: :down,
             step_func: :rollback,
             step_index: step_index - 1,
             step_mod: get_step(step_index - 1)
           })
 
+        {:noreply, state, {:continue, :execute_step}}
+      end
+
+      def route(:handle_before_step, error, :down, step_index, state) when is_flow_state(state) do
+        state = Fields.merge(state, %{step_index: step_index - 1, step_mod: get_step(step_index - 1), step_func: :rollback})
         {:noreply, state, {:continue, :execute_step}}
       end
 
@@ -148,15 +175,26 @@ defmodule WorkflowEx do
       end
 
       def route(:step, error, :up, _step_index, state) do
-        updated_state = Fields.merge(state, %{step_func: :rollback, flow_direction: :down})
+        updated_state = Fields.merge(state, %{flow_error_reason: error, step_func: :rollback, flow_direction: :down})
         {:noreply, updated_state, {:continue, :execute_step}}
       end
 
       def route(:step, error, :down, _step_index, state), do: {:stop, error, state}
 
+      def route(:rollback, error, :up, _step_index, state) do
+        # step_index won't change
+        updated_state = Fields.merge(state, %{flow_error_reason: error, step_func: :rollback, flow_direction: :down})
+        {:noreply, updated_state, {:continue, :execute_step}}
+      end
+
+      def route(:rollback, error, :down, _step_index, state) do
+        # if we're already rolling back, ignore external folks.
+        {:noreply, state}
+      end
+
       def route(arg1, arg2, arg3, arg4, arg5) do
         IO.inspect([arg1, arg2, arg3, arg4, arg5], label: "catch all")
-        raise ArgumentError, "No Route Func Matched"
+        raise ArgumentError, "No Route Func Matched: #{inspect([arg1, arg2, arg3, arg4, arg5])}"
       end
 
       @spec execute_inits(WorkflowEx.flow_state()) :: {:ok | atom, WorkflowEx.flow_state()}
@@ -191,7 +229,9 @@ defmodule WorkflowEx do
       state = Fields.merge(state, %{lifecycle_src: :step, last_result: response})
       {response, state}
     else
-      {:continue, state} -> {:continue, state}
+      {:continue, state} ->
+        state = Fields.merge(state, %{lifecycle_src: :step, last_result: :continue})
+        {:continue, state}
     end
   end
 
@@ -209,7 +249,10 @@ defmodule WorkflowEx do
       flow_state when is_flow_state(flow_state) ->
         flow_state = Fields.merge(flow_state, %{lifecycle_src: func, last_result: :ok})
         {:ok, flow_state}
-      result -> result
+
+      {error, flow_state} ->
+        flow_state = Fields.merge(flow_state, %{lifecycle_src: func, last_result: error})
+        {error, flow_state}
     end
   end
 
@@ -218,15 +261,15 @@ defmodule WorkflowEx do
       state = %{state | __flow__: set_current_wrapper(state.__flow__, mod, func)}
 
       case apply(mod, func, [state]) do
-        {:ok, state} ->
+        {:ok, state} when is_flow_state(state) ->
           state = %{state | __flow__: clear_current_wrapper(state.__flow__)}
           {:cont, state}
 
         {result, %{__flow__: _} = state} when is_atom(result) ->
-          {:halt, {:stop, result, state}}
+          {:halt, {result, state}}
 
         {_, _} ->
-          {:halt, {:stop, :invalid_return_value, state}}
+          {:halt, {:invalid_return_value, state}}
       end
     end)
   end

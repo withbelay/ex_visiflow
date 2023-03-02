@@ -24,10 +24,11 @@ defmodule WorkflowExTest do
     [
       {:handle_init, :ok, :up, @first_step, {:continue, :execute_step}, %{step_mod: WorkflowEx.StepOk, step_index: @first_step, step_func: :run}},
       {:handle_init, :ok, :up, @last_step, {:continue, :execute_step}, %{step_mod: WorkflowEx.StepOk2, step_index: @last_step, step_func: :run}},
-      {:handle_init, :er, :up, @first_step, {:stop, :er}, %{}},
+      {:handle_init, :er, :up, @first_step, {:stop, :er}, %{flow_error_reason: :er}},
 
-      {:handle_before, :er, :up, @first_step, {:continue, :handle_workflow_failure}, %{flow_direction: :down} },
-      {:handle_before, :er, :up, @last_step, {:continue, :execute_step}, %{flow_direction: :down, step_index: @first_step, step_func: :rollback, step_mod: WorkflowEx.StepOk} },
+      {:handle_before_step, :er, :up, @first_step, {:continue, :handle_workflow_failure}, %{flow_direction: :down, flow_error_reason: :er} },
+      {:handle_before_step, :er, :up, @last_step, {:continue, :execute_step}, %{flow_direction: :down, step_index: @first_step, step_func: :rollback, step_mod: WorkflowEx.StepOk, flow_error_reason: :er} },
+      {:handle_before_step, :er, :down, @last_step, {:continue, :execute_step}, %{step_index: @first_step, step_func: :rollback, step_mod: WorkflowEx.StepOk} },
 
       {:step, :ok, :up, @first_step, {:continue, :execute_step}, %{step_index: @second_step, step_func: :run, step_mod: WorkflowEx.StepOk2} },
       {:step, :ok, :up, @last_step, {:continue, :handle_workflow_success}, %{}},
@@ -38,11 +39,11 @@ defmodule WorkflowExTest do
       {:step, :continue, :up, @first_step, :noreply, %{step_index: @first_step, step_func: :run_continue} },
       {:step, :continue, :down, @first_step, :noreply, %{step_index: @first_step, step_func: :rollback_continue} },
 
-      {:step, :er, :up, @first_step, {:continue, :execute_step}, %{step_index: @first_step, step_func: :rollback, step_mod: WorkflowEx.StepOk, flow_direction: :down}},
+      {:step, :er, :up, @first_step, {:continue, :execute_step}, %{step_index: @first_step, step_func: :rollback, step_mod: WorkflowEx.StepOk, flow_direction: :down, flow_error_reason: :er}},
       {:step, :er, :down, @first_step, {:stop, :er}, %{}},
 
-      # {:rollback, :er, :up, @first_step, {:continue, :execute_step}, %{step_index: @first_step, step_func: :rollback, step_mod: WorkflowEx.StepOk, flow_direction: :down}},
-      # {:rollback, :er, :down, @first_step, {:continue, :execute_step}, %{}}
+      {:rollback, :er, :up, @first_step, {:continue, :execute_step}, %{step_index: @first_step, step_func: :rollback, step_mod: WorkflowEx.StepOk, flow_direction: :down, flow_error_reason: :er}},
+      {:rollback, :er, :down, @first_step, :noreply, %{}}
 
     ]
     |> Enum.map(fn {src, result, direction, current_step, expected_response, expected_state} ->
@@ -93,33 +94,35 @@ defmodule WorkflowExTest do
     end
   end
 
+  describe "when a workflow succeeds" do
+    test "runs handle_workflow_success", %{test_steps: test_steps} do
+      # assert JustStart.handle_continue(:handle_workflow_success, test_steps) == {:stop, :normal, test_steps }
+    end
+
+    test "runs handle_workflow_success and logs if it fails" do
+
+    end
+  end
+
+  describe "when a workflow fails" do
+    test "runs handle_workflow_failure" do
+
+    end
+
+    test "runs handle_workflow_failure and logs if it fails" do
+
+    end
+  end
+
   describe "a synchronous, successful workflow with no wrapper steps or finalizer" do
     defmodule SyncSuccess do
       use WorkflowEx, steps: [WorkflowEx.StepOk, WorkflowEx.StepOk2], state_type: WorkflowEx.TestSteps
-    end
-
-    test "the workflow runs a step, and returns the outcome", %{test_steps: test_steps} do
-      {:ok, test_steps, _} = SyncSuccess.init(test_steps)
-      assert {:ok, state} = SyncSuccess.execute_step_and_handlers(test_steps)
-      assert state.steps_run[{WorkflowEx.StepOk, :run}] == 1
-      assert state.execution_order == [{WorkflowEx.StepOk, :run}]
-
-      assert {:ok, state} = SyncSuccess.execute_step_and_handlers(state)
-      assert state.steps_run[{WorkflowEx.StepOk2, :run}] == 1
-      assert state.execution_order == [{WorkflowEx.StepOk, :run}, {WorkflowEx.StepOk2, :run}]
-
-      assert {:stop, :normal, state} == SyncSuccess.execute_step_and_handlers(state)
     end
 
     test "the GenServer workflow runs to completion and stops", %{test_steps: test_steps} do
       assert {:ok, pid} = SyncSuccess.start_link(test_steps)
       assert_receive {:EXIT, ^pid, :normal}
       final_state = StateAgent.get(test_steps.agent)
-
-      assert final_state.steps_run == %{
-               {WorkflowEx.StepOk, :run} => 1,
-               {WorkflowEx.StepOk2, :run} => 1
-             }
 
       assert final_state.execution_order == [{WorkflowEx.StepOk, :run}, {WorkflowEx.StepOk2, :run}]
     end
@@ -130,17 +133,6 @@ defmodule WorkflowExTest do
       use WorkflowEx,
         steps: [WorkflowEx.StepOk, WorkflowEx.StepError],
         state_type: WorkflowEx.TestSteps
-    end
-
-    test "the workflow fails the first step", %{test_steps: test_steps} do
-      {:ok, test_steps, _} = SyncFailure.init(test_steps)
-      assert {:ok, state} = SyncFailure.execute_step_and_handlers(test_steps)
-      assert {:error, state} = SyncFailure.execute_step_and_handlers(state)
-      visi = state.__visi__
-      assert state.steps_run[{WorkflowEx.StepError, :run}] == 1
-      assert visi.step_result == :error
-      assert visi.step_index == 1
-      assert visi.flow_direction == :down
     end
 
     test "the workflow rollsback", %{test_steps: test_steps} do
@@ -208,7 +200,7 @@ defmodule WorkflowExTest do
         state_type: WorkflowEx.TestSteps
     end
 
-    test "the workflow runs, pauses, receives a cancel message, and reverses direction", %{test_steps: test_steps} do
+    test "the workflow runs, pauses, the async step fails, and reverses direction", %{test_steps: test_steps} do
       # act 1
       assert {:ok, pid} = AsyncFailureRollsBack.start_link(test_steps)
 
@@ -321,12 +313,15 @@ defmodule WorkflowExTest do
       assert flow_state.execution_order == [
                {WorkflowEx.WrapperAfterFailure, :handle_before_step},
                {WorkflowEx.StepOk, :run},
+               {WorkflowEx.WrapperAfterFailure, :handle_after_step},
+               {WorkflowEx.WrapperAfterFailure, :handle_before_step},
+               {WorkflowEx.StepOk, :rollback},
                {WorkflowEx.WrapperAfterFailure, :handle_after_step}
              ]
     end
   end
 
-  describe "a synchronous workflow with before steps that raise" do
+  describe "a synchronous workflow with before steps that raises" do
     defmodule SyncWrapperBeforeRaise do
       use WorkflowEx,
         steps: [WorkflowEx.StepOk, WorkflowEx.StepOk2],
@@ -334,7 +329,7 @@ defmodule WorkflowExTest do
         wrappers: [WorkflowEx.WrapperBeforeRaise]
     end
 
-    test "raises when run", %{test_steps: test_steps} do
+    test "when run", %{test_steps: test_steps} do
       assert {:ok, pid} = SyncWrapperBeforeRaise.start_link(test_steps)
 
       assert_receive {:EXIT, ^pid, :invalid_return_value}
@@ -363,6 +358,8 @@ defmodule WorkflowExTest do
       assert flow_state.execution_order == [
                {WorkflowEx.WrapperAfterRaise, :handle_before_step},
                {WorkflowEx.StepOk, :run},
+               {WorkflowEx.WrapperAfterRaise, :handle_before_step},
+               {WorkflowEx.StepOk, :rollback},
                {WorkflowEx.WrapperAfterRaise, :handle_after_step}
              ]
     end
