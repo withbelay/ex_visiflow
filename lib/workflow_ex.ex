@@ -64,6 +64,10 @@ defmodule WorkflowEx do
       1. LifecycleHandlers's handle_before_step funcs
       2. Step's run or rollback funcs
       3. LifecycleHandlers's handle_after_step funcs
+
+      Note: execute_befores can skip the step. That's probably correct on the way up. But what about on the way down?
+      Seems like we may want different rules for rollback, such that the steps always get their chance.
+      https://app.clickup.com/t/860q3z5hy
       """
       @impl true
       def handle_continue(:execute_step, state) do
@@ -191,6 +195,10 @@ defmodule WorkflowEx do
         {:noreply, state, {:continue, :execute_step}}
       end
 
+      @doc """
+      If the workflow is succeeding, grab the next step, and queue it up. However. If we're out of steps, the workflow is done, so run
+      handle_workflow_success.
+      """
       def route(:step, :ok, :up, step_index, state) do
         step_index = Fields.get(state, :step_index) + 1
 
@@ -235,10 +243,11 @@ defmodule WorkflowEx do
         {:noreply, updated_state, {:continue, :execute_step}}
       end
 
-      def route(:rollback, error, :down, _step_index, state) do
-        # if we're already rolling back, ignore external folks.
-        {:noreply, state}
-      end
+      @doc """
+      If workflow is already rolling back, ignore external commands to begin rollback, because it can disguise the
+      return value of previous actions.
+      """
+      def route(:rollback, error, :down, _step_index, state), do: {:noreply, state}
 
       def route(arg1, arg2, arg3, arg4, arg5) do
         raise ArgumentError, "No Route Func Matched: #{inspect([arg1, arg2, arg3, arg4, arg5])}"
@@ -246,8 +255,10 @@ defmodule WorkflowEx do
 
       @spec execute_inits(WorkflowEx.flow_state()) :: {:ok | atom, WorkflowEx.flow_state()}
       def execute_inits(state), do: execute_handlers(:handle_init, state)
+
       @spec execute_befores(WorkflowEx.flow_state()) :: {:ok | atom, WorkflowEx.flow_state()}
       def execute_befores(state), do: execute_handlers(:handle_before_step, state)
+
       @spec execute_workflow_successes(WorkflowEx.flow_state()) :: {:ok | atom, WorkflowEx.flow_state()}
       def execute_workflow_successes(state),
         do: execute_handlers(:handle_workflow_success, state)
