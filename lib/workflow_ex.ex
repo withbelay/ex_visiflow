@@ -1,11 +1,16 @@
 defmodule WorkflowEx do
+  @moduledoc """
+
+  """
+
   @typedoc """
   The fields required for a workflow state to function with Visiflow.
   """
+  @type flow_state() :: %{__flow__: WorkflowEx.Fields.t()}
+
   alias WorkflowEx.Fields
   import WorkflowEx.Fields, only: [is_flow_state: 1]
 
-  @type flow_state() :: %{__flow__: WorkflowEx.Fields.t()}
   defmacro __using__(opts) do
     steps = Keyword.fetch!(opts, :steps)
     wrappers = Keyword.get(opts, :wrappers, [])
@@ -34,6 +39,10 @@ defmodule WorkflowEx do
         GenServer.start_link(__MODULE__, state)
       end
 
+      @doc """
+      Starts the workflow by 'continuing' to the handle_init callback, which invokes all lifecycle handlers that
+      implement handle_init
+      """
       @impl true
       def init(state) when is_flow_state(state) do
         {:ok, state, {:continue, :handle_init}}
@@ -41,6 +50,21 @@ defmodule WorkflowEx do
 
       def init(_), do: {:stop, :missing_flow_fields}
 
+      @doc """
+      Runs the handle_init funcs of all lifecycle handlers
+      """
+      @impl true
+      def handle_continue(:handle_init, state) do
+        {_result, state} = execute_inits(state)
+        route(state)
+      end
+
+      @doc """
+      Executes a step, which includes:
+      1. LifecycleHandlers's handle_before_step funcs
+      2. Step's run or rollback funcs
+      3. LifecycleHandlers's handle_after_step funcs
+      """
       @impl true
       def handle_continue(:execute_step, state) do
         with {:ok, state} <- execute_befores(state),
@@ -52,12 +76,10 @@ defmodule WorkflowEx do
         end
       end
 
-      @impl true
-      def handle_continue(:handle_init, state) do
-        {_result, state} = execute_inits(state)
-        route(state)
-      end
-
+      @doc """
+      If the workflow finishes all steps successfully, it invokes the handle_workflow_success funcs of all lifecycle
+      handlers
+      """
       @impl true
       def handle_continue(:handle_workflow_success, state) do
         {result, state} = execute_workflow_successes(state)
@@ -69,6 +91,10 @@ defmodule WorkflowEx do
         {:stop, :normal, state}
       end
 
+      @doc """
+      If the workflow errors, it invokes the handle_workflow_failure funcs of all lifecycle
+      handlers after rollback completes
+      """
       @impl true
       def handle_continue(:handle_workflow_failure, state) do
         {result, state} = execute_workflow_failures(state)
@@ -80,6 +106,10 @@ defmodule WorkflowEx do
         {:stop, Fields.get(state, :flow_error_reason), state}
       end
 
+      @doc """
+      If an external component sends our workflow a rollback message, it will interrupt the flow if it wasn't rolling
+      back already, and undo changes as if an error had occurred due to an internal source
+      """
       @impl true
       # If I am already rolling back, and this comes in, I need to ensure it is ignored
       def handle_info({:rollback, reason}, state) do
@@ -89,12 +119,20 @@ defmodule WorkflowEx do
         |> route()
       end
 
+      @doc """
+      Async steps need to listen for something from the outside world, this func routes those messages to the step's
+      listener
+      """
       @impl true
       def handle_info(message, state) do
         {_response, state} = execute_step(state, message)
         route(state)
       end
 
+      @doc """
+      The heart of WorkflowEx has to do with taking in what just happened, and what part of the lifecycle was involved,
+      and determining what should happen next. The router's various overrides make these decisions
+      """
       def route(
             %{
               __flow__: %Fields{
@@ -107,21 +145,31 @@ defmodule WorkflowEx do
           ),
           do: route(lifecycle_src, result, direction, step_index, state)
 
+
       def route(:handle_init, :ok, :up, current_step, state) when is_flow_state(state) do
-        state = Fields.merge(state, %{step_func: :run})
         {:noreply, state, {:continue, :execute_step}}
       end
 
+      @doc """
+      If an error happens before the workflow even starts, just stop the flow immediately
+      """
       def route(:handle_init, error, :up, _current_step, state) when is_flow_state(state) do
         state = Fields.merge(state, %{flow_error_reason: error})
         {:stop, error, state}
       end
 
+      @doc """
+      if an error happens before the first step even starts, just stop the flow immediately
+      """
       def route(:handle_before_step, error, :up, 0, state) when is_flow_state(state) do
         state = Fields.merge(state, %{flow_direction: :down, flow_error_reason: error, step_func: :rollback})
         {:noreply, state, {:continue, :handle_workflow_failure}}
       end
 
+      @doc """
+      Errors before a step runs will flip to rollback mode. But because the "run" step never fired, we can go back to
+      the previous step to start the rollback process
+      """
       def route(:handle_before_step, error, :up, step_index, state) when is_flow_state(state) do
         state =
           Fields.merge(state, %{
@@ -134,6 +182,9 @@ defmodule WorkflowEx do
         {:noreply, state, {:continue, :execute_step}}
       end
 
+      @doc """
+      Tricky... If we're rolling back a workflow already, what do you do if a before_handler fails?
+      """
       def route(:handle_before_step, error, :down, step_index, state) when is_flow_state(state) do
         state = Fields.merge(state, %{step_index: step_index - 1, step_func: :rollback})
 
@@ -212,8 +263,7 @@ defmodule WorkflowEx do
       def execute_step(state, message), do: do_execute_step(state, [message, state])
 
       defp do_execute_step(state, args) do
-        %{step_index: step_index, step_func: func} = Fields.take(state, [:step_index, :step_func])
-        mod = get_step(step_index)
+        {mod, func} = get_mod_and_func(state)
 
         with {step_response, state} when step_response != :continue <- apply(mod, func, args),
              {after_response, state} <- execute_handlers(:handle_after_step, state) do
@@ -225,6 +275,12 @@ defmodule WorkflowEx do
             state = Fields.merge(state, %{lifecycle_src: :step, last_result: :continue})
             {:continue, state}
         end
+      end
+
+      defp get_mod_and_func(state) do
+        %{step_index: step_index, step_func: func} = Fields.take(state, [:step_index, :step_func])
+        mod = get_step(step_index)
+        {mod, func}
       end
 
       # Execute the wrappers and continue running them so long as the result is always {:ok, state}
