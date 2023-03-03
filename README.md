@@ -1,7 +1,6 @@
 # WorkflowEx
 ![CI Status](https://github.com/withbelay/ex_visiflow/actions/workflows/ci.yml/badge.svg)
 
-
 WorkflowEx is a macro that runs workflows of a very specific character. They process work linearly, and when any error is encountered, they then work backwards in that same manner.
 
 Workflow steps can be synchronous or asynchronous. Workflow steps that are asynchronous will return :continue, and then expected to subscribe to whatever events are needed to complete their task.
@@ -16,7 +15,6 @@ defmodule Company.Workflow do
       Company.Step2,
       Company.Step3
     ],
-    state_type: Company.Workflow.State,
     wrappers: [Company.Wrapper]
 end
 ```
@@ -33,7 +31,7 @@ We use Ecto, and TypedEctoSchema's wrapper to define the fields required for Wor
 defmodule Company.Workflow.State do
   use TypedEctoSchema
   typed_embedded_schema do
-    embed_one :__visi__, WorkflowEx.Fields
+    embed_one :__flow__, WorkflowEx.Fields
     # Add fields used by the workflow steps
   end
 end
@@ -119,26 +117,7 @@ end
 | flow_direction | atom | :up | up = running, down = rolling back|
 | flow_error_reason | atom | :normal | When workflow stops, it records a reason. :normal means the workflow succeeded. Any error in run is returned here |
 | step_index | integer | 0 | Keeps track of what step the workflow is on |
-| step_mod | atom | nil | step module being executed |
 | step_func | atom | :run | step function being executed |
-| step_result | atom | nil | result of the last step |
-| wrapper_mod | atom | nil | wrapper module being executed |
-| wrapper_func | atom | nil | wrapper func being executed |
-
-
-**TODO: Add description**
-
-- [x] Remove the application.ex
-- [x] Add wrappers
-- [x] Move to embedded_schema
-- [x] Add step macros
-- [x] Add state type
-- [x] Add wrapper macros
-- [ ] Rename Wrappers to Events, and name them on_start, on_step, on_step_complete, on_workflow_success, on_workflow_fail
-- [ ] Add on_success and on_fail "wrapper" steps
-- [ ] Add typespecs
-- [ ] Can we add protocols or something to the modules? I don't know how to make a Generic behaviour because the statetype varies - Maybe if the behaviour will only care about the %{__visi__: } key in the inputs?
-
 
 ## Installation
 
@@ -150,7 +129,7 @@ by adding `ex_visiflow` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:ex_visiflow, "~> 0.1.0"}
+    {:workflow_ex, "~> 0.1.0"}
   ]
 end
 ```

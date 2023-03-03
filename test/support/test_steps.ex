@@ -6,9 +6,8 @@ defmodule WorkflowEx.TestSteps do
 
   @primary_key false
   typed_embedded_schema do
-    embeds_one :__visi__, WorkflowEx.Fields
+    embeds_one :__flow__, WorkflowEx.Fields
     field(:agent, WorkflowEx.Pid, virtual: true)
-    field(:steps_run, :map)
     field(:execution_order, {:array, :string})
   end
 
@@ -20,9 +19,8 @@ defmodule WorkflowEx.TestSteps do
   def_new(
     required: :none,
     default: [
-      {:steps_run, %{}},
       {:execution_order, []},
-      {:__visi__, %WorkflowEx.Fields{} |> Map.from_struct()}
+      {:__flow__, %WorkflowEx.Fields{} |> Map.from_struct()}
     ]
   )
 
@@ -37,9 +35,6 @@ defmodule WorkflowEx.TestSteps do
 
     state =
       state
-      |> Map.update(:steps_run, Map.put(%{}, full_step, 1), fn current ->
-        Map.update(current, full_step, 1, &(&1 + 1))
-      end)
       |> Map.update(:execution_order, [full_step], fn current ->
         current ++ List.wrap(full_step)
       end)
@@ -172,5 +167,59 @@ defmodule WorkflowEx.WrapperAfterRaise do
   def handle_after_step(%TestSteps{} = state) do
     TestSteps.run_wrapper(state, __MODULE__, :handle_after_step, :ok)
     {:ok, :this_is_not_the_right_state_type}
+  end
+end
+
+defmodule WorkflowEx.WrapperHandleSuccessOk do
+  use WorkflowEx.LifecycleHandler
+  alias WorkflowEx.TestSteps
+
+  def handle_workflow_success(%TestSteps{} = state) do
+    TestSteps.run_wrapper(state, __MODULE__, :handle_workflow_success, :ok)
+  end
+end
+
+defmodule WorkflowEx.WrapperHandleSuccessError do
+  use WorkflowEx.LifecycleHandler
+  alias WorkflowEx.TestSteps
+
+  def handle_workflow_success(%TestSteps{} = state) do
+    TestSteps.run_wrapper(state, __MODULE__, :handle_workflow_success, :handle_workflow_success_error)
+  end
+end
+
+defmodule WorkflowEx.WrapperHandleFailureOk do
+  use WorkflowEx.LifecycleHandler
+  alias WorkflowEx.TestSteps
+
+  def handle_workflow_failure(%TestSteps{} = state) do
+    TestSteps.run_wrapper(state, __MODULE__, :handle_workflow_failure, :ok)
+  end
+end
+
+defmodule WorkflowEx.WrapperHandleFailureError do
+  use WorkflowEx.LifecycleHandler
+  alias WorkflowEx.TestSteps
+
+  def handle_workflow_failure(%TestSteps{} = state) do
+    TestSteps.run_wrapper(state, __MODULE__, :handle_workflow_failure, :handle_workflow_failure_error)
+  end
+end
+
+defmodule WorkflowEx.WrapperInitOk do
+  use WorkflowEx.LifecycleHandler
+  alias WorkflowEx.TestSteps
+
+  def handle_init(%TestSteps{} = state) do
+    TestSteps.run_wrapper(state, __MODULE__, :handle_init, :ok)
+  end
+end
+
+defmodule WorkflowEx.WrapperInitError do
+  use WorkflowEx.LifecycleHandler
+  alias WorkflowEx.TestSteps
+
+  def handle_init(%TestSteps{} = state) do
+    TestSteps.run_wrapper(state, __MODULE__, :handle_init, :handle_init_error)
   end
 end
