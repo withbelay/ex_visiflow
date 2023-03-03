@@ -149,7 +149,6 @@ defmodule WorkflowEx do
           ),
           do: route(lifecycle_src, result, direction, step_index, state)
 
-
       def route(:handle_init, :ok, :up, current_step, state) when is_flow_state(state) do
         {:noreply, state, {:continue, :execute_step}}
       end
