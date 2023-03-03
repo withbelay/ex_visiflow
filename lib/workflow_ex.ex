@@ -330,6 +330,11 @@ defmodule WorkflowEx do
         end)
       end
 
+      def current_step(state) when is_flow_state(state) do
+        index = Fields.get(state, :step_index)
+        get_step(index)
+      end
+
       # Enum.at(-1) gets the last element in the list, which is not what I want.
       defp get_step(step_index) when step_index < 0, do: nil
       defp get_step(step_index), do: Enum.at(unquote(steps), step_index)
