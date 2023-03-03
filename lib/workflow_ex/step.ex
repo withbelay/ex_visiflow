@@ -12,16 +12,12 @@ defmodule WorkflowEx.Step do
     quote do
       @behaviour WorkflowEx.Step
 
-      @impl true
       def run(state), do: {:ok, state}
 
-      @impl true
       def run_continue(message, state), do: {:ok, state}
 
-      @impl true
       def rollback(state), do: {:ok, state}
 
-      @impl true
       def rollback_continue(messages, state), do: {:ok, state}
 
       defoverridable run: 1, rollback: 1, run_continue: 2, rollback_continue: 2
