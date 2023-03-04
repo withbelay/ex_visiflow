@@ -34,7 +34,7 @@ defmodule WorkflowEx do
       import WorkflowEx.Fields, only: [is_flow_state: 1]
       require Logger
 
-      @spec start_link(WorkflowEx.visi_state()) :: GenServer.on_start()
+      @spec start_link(WorkflowEx.flow_state()) :: GenServer.on_start()
       def start_link(state) when is_flow_state(state) do
         GenServer.start_link(__MODULE__, state)
       end

@@ -2,11 +2,11 @@ defmodule WorkflowEx.LifecycleHandler do
   @moduledoc """
   Provides default implementations for the lifecycle of the workflow, and marks it as implementing the appropriate behaviour
   """
-  @callback handle_init(WorkflowEx.visi_state()) :: {:ok | :error | atom(), WorkflowEx.visi_state()}
-  @callback handle_before_step(WorkflowEx.visi_state()) :: {:ok | :error | atom(), WorkflowEx.visi_state()}
-  @callback handle_after_step(WorkflowEx.visi_state()) :: {:ok | :error | atom(), WorkflowEx.visi_state()}
-  @callback handle_workflow_success(WorkflowEx.visi_state()) :: {:ok | :error | atom(), WorkflowEx.visi_state()}
-  @callback handle_workflow_failure(WorkflowEx.visi_state()) :: {:ok | :error | atom(), WorkflowEx.visi_state()}
+  @callback handle_init(WorkflowEx.flow_state()) :: {:ok | :error | atom(), WorkflowEx.flow_state()}
+  @callback handle_before_step(WorkflowEx.flow_state()) :: {:ok | :error | atom(), WorkflowEx.flow_state()}
+  @callback handle_after_step(WorkflowEx.flow_state()) :: {:ok | :error | atom(), WorkflowEx.flow_state()}
+  @callback handle_workflow_success(WorkflowEx.flow_state()) :: {:ok | :error | atom(), WorkflowEx.flow_state()}
+  @callback handle_workflow_failure(WorkflowEx.flow_state()) :: {:ok | :error | atom(), WorkflowEx.flow_state()}
   defmacro __using__(_) do
     quote do
       @behaviour WorkflowEx.LifecycleHandler
