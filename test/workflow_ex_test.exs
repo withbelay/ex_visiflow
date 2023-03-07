@@ -109,7 +109,7 @@ defmodule WorkflowExTest do
     end
   end
 
-  describe "a synchronous, successful workflow with no wrapper steps or finalizer" do
+  describe "a synchronous, successful workflow with no observer steps or finalizer" do
     defmodule SyncSuccess do
       use WorkflowEx, steps: [WorkflowEx.StepOk, WorkflowEx.StepOk2]
     end
@@ -119,11 +119,14 @@ defmodule WorkflowExTest do
       assert_receive {:EXIT, ^pid, :normal}
       final_state = StateAgent.get(test_steps.agent)
 
-      assert final_state.execution_order == [{WorkflowEx.StepOk, :run}, {WorkflowEx.StepOk2, :run}]
+      assert final_state.execution_order == [
+               {WorkflowEx.StepOk, :run},
+               {WorkflowEx.StepOk2, :run}
+             ]
     end
   end
 
-  describe "a synchronous, failing workflow with no wrapper steps or finalizer" do
+  describe "a synchronous, failing workflow with no observer steps or finalizer" do
     defmodule SyncFailure do
       use WorkflowEx,
         steps: [WorkflowEx.StepOk, WorkflowEx.StepError]
@@ -144,7 +147,7 @@ defmodule WorkflowExTest do
     end
   end
 
-  describe "an async, succeeding workflow with no wrapper steps or finalizer" do
+  describe "an async, succeeding workflow with no observer steps or finalizer" do
     defmodule AsyncSuccess do
       use WorkflowEx,
         steps: [
@@ -239,216 +242,110 @@ defmodule WorkflowExTest do
     end
   end
 
-  describe "a synchronous, successful workflow with wrapper steps" do
-    defmodule SyncWrapperSuccess do
+  describe "a synchronous, successful workflow with observer steps" do
+    defmodule SyncObserverSuccess do
       use WorkflowEx,
         steps: [WorkflowEx.StepOk, WorkflowEx.StepOk2],
-        wrappers: [WorkflowEx.WrapperOk, WorkflowEx.WrapperOk2]
+        observers: [WorkflowEx.ObserverOk, WorkflowEx.ObserverOk2]
     end
 
-    test "wrapper steps are all run", %{test_steps: test_steps} do
-      assert {:ok, pid} = SyncWrapperSuccess.start_link(test_steps)
+    test "observer steps are all run", %{test_steps: test_steps} do
+      assert {:ok, pid} = SyncObserverSuccess.start_link(test_steps)
 
       assert_receive {:EXIT, ^pid, :normal}
       flow_state = StateAgent.get(test_steps.agent)
 
       assert flow_state.execution_order == [
-               {WorkflowEx.WrapperOk, :handle_before_step},
-               {WorkflowEx.WrapperOk2, :handle_before_step},
+               {WorkflowEx.ObserverOk, :handle_before_step},
+               {WorkflowEx.ObserverOk2, :handle_before_step},
                {WorkflowEx.StepOk, :run},
-               {WorkflowEx.WrapperOk, :handle_after_step},
-               {WorkflowEx.WrapperOk2, :handle_after_step},
-               {WorkflowEx.WrapperOk, :handle_before_step},
-               {WorkflowEx.WrapperOk2, :handle_before_step},
+               {WorkflowEx.ObserverOk, :handle_after_step},
+               {WorkflowEx.ObserverOk2, :handle_after_step},
+               {WorkflowEx.ObserverOk, :handle_before_step},
+               {WorkflowEx.ObserverOk2, :handle_before_step},
                {WorkflowEx.StepOk2, :run},
-               {WorkflowEx.WrapperOk, :handle_after_step},
-               {WorkflowEx.WrapperOk2, :handle_after_step}
+               {WorkflowEx.ObserverOk, :handle_after_step},
+               {WorkflowEx.ObserverOk2, :handle_after_step}
              ]
     end
   end
 
-  describe "a synchronous workflow with before steps that fail" do
-    defmodule SyncWrapperBeforeFailure do
+  describe "a synchronous workflow with observer steps that raise can't stop the workflow" do
+    defmodule SyncObserverRaise do
       use WorkflowEx,
-        steps: [WorkflowEx.StepOk, WorkflowEx.StepOk2],
-        wrappers: [WorkflowEx.WrapperBeforeFailure]
-    end
-
-    test "wrapper steps are all run", %{test_steps: test_steps} do
-      assert {:ok, pid} = SyncWrapperBeforeFailure.start_link(test_steps)
-
-      assert_receive {:EXIT, ^pid, :before_error}
-      flow_state = StateAgent.get(test_steps.agent)
-
-      assert flow_state.execution_order == [
-               {WorkflowEx.WrapperBeforeFailure, :handle_before_step}
-             ]
-    end
-  end
-
-  describe "a synchronous workflow with after steps that fail" do
-    defmodule SyncWrapperAfterFailure do
-      use WorkflowEx,
-        steps: [WorkflowEx.StepOk, WorkflowEx.StepOk2],
-        wrappers: [WorkflowEx.WrapperAfterFailure]
-    end
-
-    test "wrapper steps are all run", %{test_steps: test_steps} do
-      assert {:ok, pid} = SyncWrapperAfterFailure.start_link(test_steps)
-
-      assert_receive {:EXIT, ^pid, :after_error}
-      flow_state = StateAgent.get(test_steps.agent)
-
-      assert flow_state.execution_order == [
-               {WorkflowEx.WrapperAfterFailure, :handle_before_step},
-               {WorkflowEx.StepOk, :run},
-               {WorkflowEx.WrapperAfterFailure, :handle_after_step},
-               {WorkflowEx.WrapperAfterFailure, :handle_before_step},
-               {WorkflowEx.StepOk, :rollback},
-               {WorkflowEx.WrapperAfterFailure, :handle_after_step}
-             ]
-    end
-  end
-
-  describe "a synchronous workflow with before steps that raises" do
-    defmodule SyncWrapperBeforeRaise do
-      use WorkflowEx,
-        steps: [WorkflowEx.StepOk, WorkflowEx.StepOk2],
-        wrappers: [WorkflowEx.WrapperBeforeRaise]
+        steps: [WorkflowEx.StepOk],
+        observers: [WorkflowEx.RaisingObserver]
     end
 
     test "when run", %{test_steps: test_steps} do
-      assert {:ok, pid} = SyncWrapperBeforeRaise.start_link(test_steps)
+      assert {:ok, pid} = SyncObserverRaise.start_link(test_steps)
 
-      assert_receive {:EXIT, ^pid, :invalid_return_value}
+      assert_receive {:EXIT, ^pid, :normal}
       flow_state = StateAgent.get(test_steps.agent)
 
       assert flow_state.execution_order == [
-               {WorkflowEx.WrapperBeforeRaise, :handle_before_step}
-             ]
-    end
-  end
-
-  describe "a synchronous workflow with after steps that raise" do
-    defmodule SyncWrapperAfterRaise do
-      use WorkflowEx,
-        steps: [WorkflowEx.StepOk, WorkflowEx.StepOk2],
-        wrappers: [WorkflowEx.WrapperAfterRaise]
-    end
-
-    test "raises when run", %{test_steps: test_steps} do
-      assert {:ok, pid} = SyncWrapperAfterRaise.start_link(test_steps)
-
-      assert_receive {:EXIT, ^pid, :invalid_return_value}
-      flow_state = StateAgent.get(test_steps.agent)
-
-      assert flow_state.execution_order == [
-               {WorkflowEx.WrapperAfterRaise, :handle_before_step},
+               {WorkflowEx.RaisingObserver, :handle_init},
+               {WorkflowEx.RaisingObserver, :handle_before_step},
                {WorkflowEx.StepOk, :run},
-               {WorkflowEx.WrapperAfterRaise, :handle_before_step},
-               {WorkflowEx.StepOk, :rollback},
-               {WorkflowEx.WrapperAfterRaise, :handle_after_step}
+               {WorkflowEx.RaisingObserver, :handle_after_step},
+               {WorkflowEx.RaisingObserver, :handle_after_workflow_success}
              ]
     end
   end
 
   describe "an asynchronous, successful workflow with after steps" do
-    defmodule AsyncSuccessWithWrappers do
+    defmodule AsyncSuccessWithObservers do
       use WorkflowEx,
         steps: [WorkflowEx.AsyncStepOk],
-        wrappers: [WorkflowEx.WrapperOk]
+        observers: [WorkflowEx.ObserverOk]
     end
 
-    test "the expected steps and wrappers all fire", %{test_steps: test_steps} do
-      assert {:ok, pid} = AsyncSuccessWithWrappers.start_link(test_steps)
+    test "the expected steps and observers all fire", %{test_steps: test_steps} do
+      assert {:ok, pid} = AsyncSuccessWithObservers.start_link(test_steps)
       send(pid, WorkflowEx.AsyncStepOk)
       assert_receive {:EXIT, ^pid, :normal}
 
       flow_state = StateAgent.get(test_steps.agent)
 
       assert flow_state.execution_order == [
-               {WorkflowEx.WrapperOk, :handle_before_step},
+               {WorkflowEx.ObserverOk, :handle_before_step},
                {WorkflowEx.AsyncStepOk, :run},
                {WorkflowEx.AsyncStepOk, :run_continue},
-               {WorkflowEx.WrapperOk, :handle_after_step}
+               {WorkflowEx.ObserverOk, :handle_after_step}
              ]
     end
   end
 
-  describe "a successful workflow with a working init wrapper" do
-    defmodule SuccessInitWrapper do
+  describe "a successful workflow with a working init observer" do
+    defmodule SuccessInitObserver do
       use WorkflowEx,
         steps: [WorkflowEx.StepOk],
-        wrappers: [WorkflowEx.WrapperInitOk]
+        observers: [WorkflowEx.ObserverInitOk]
     end
 
     test "runs handle_init successfully", %{test_steps: test_steps} do
-      assert {:ok, pid} = SuccessInitWrapper.start_link(test_steps)
+      assert {:ok, pid} = SuccessInitObserver.start_link(test_steps)
 
       assert_receive {:EXIT, ^pid, :normal}
 
       flow_state = StateAgent.get(test_steps.agent)
 
       assert flow_state.execution_order == [
-               {WorkflowEx.WrapperInitOk, :handle_init},
+               {WorkflowEx.ObserverInitOk, :handle_init},
                {WorkflowEx.StepOk, :run}
              ]
     end
   end
 
-  describe "a workflow with a non-working init wrapper" do
-    defmodule FailureInitWrapper do
-      use WorkflowEx,
-        steps: [WorkflowEx.StepOk],
-        wrappers: [WorkflowEx.WrapperInitError]
-    end
-
-    test "runs handle_workflow_success successfully", %{test_steps: test_steps} do
-      assert {:ok, pid} = FailureInitWrapper.start_link(test_steps)
-
-      assert_receive {:EXIT, ^pid, :handle_init_error}
-
-      flow_state = StateAgent.get(test_steps.agent)
-
-      assert flow_state.execution_order == [{WorkflowEx.WrapperInitError, :handle_init}]
-    end
-  end
-
-  describe "a synchronous, successful workflow with a non-working handle_workflow_success wrapper" do
-    defmodule SyncHandleSuccessWrapperFailure do
-      use WorkflowEx,
-        steps: [WorkflowEx.StepOk],
-        wrappers: [WorkflowEx.WrapperHandleSuccessError]
-    end
-
-    test "tries to run handle_workflow_success and logs the error", %{test_steps: test_steps} do
-      {_, log} =
-        CaptureLog.with_log(fn ->
-          assert {:ok, pid} = SyncHandleSuccessWrapperFailure.start_link(test_steps)
-
-          assert_receive {:EXIT, ^pid, :normal}
-        end)
-
-      assert log =~ "handle_workflow_success/1 did not run successfully"
-
-      flow_state = StateAgent.get(test_steps.agent)
-
-      assert flow_state.execution_order == [
-               {WorkflowEx.StepOk, :run},
-               {WorkflowEx.WrapperHandleSuccessError, :handle_workflow_success}
-             ]
-    end
-  end
-
-  describe "a synchronous, failing workflow with a working handle_workflow_failure wrapper" do
-    defmodule SyncHandleFailureWrapperSuccess do
+  describe "a synchronous, failing workflow with a working handle_workflow_failure observer" do
+    defmodule SyncHandleFailureObserverSuccess do
       use WorkflowEx,
         steps: [WorkflowEx.StepError],
-        wrappers: [WorkflowEx.WrapperHandleFailureOk]
+        observers: [WorkflowEx.ObserverHandleFailureOk]
     end
 
     test "runs handle_workflow_failure successfully", %{test_steps: test_steps} do
-      assert {:ok, pid} = SyncHandleFailureWrapperSuccess.start_link(test_steps)
+      assert {:ok, pid} = SyncHandleFailureObserverSuccess.start_link(test_steps)
 
       assert_receive {:EXIT, ^pid, :error}
 
@@ -457,34 +354,7 @@ defmodule WorkflowExTest do
       assert flow_state.execution_order == [
                {WorkflowEx.StepError, :run},
                {WorkflowEx.StepError, :rollback},
-               {WorkflowEx.WrapperHandleFailureOk, :handle_workflow_failure}
-             ]
-    end
-  end
-
-  describe "a synchronous, failing workflow with a non-working handle_workflow_failure wrapper" do
-    defmodule SyncHandleFailureWrapperFailure do
-      use WorkflowEx,
-        steps: [WorkflowEx.StepError],
-        wrappers: [WorkflowEx.WrapperHandleFailureError]
-    end
-
-    test "tries to run handle_workflow_failure and logs the error", %{test_steps: test_steps} do
-      {_, log} =
-        CaptureLog.with_log(fn ->
-          assert {:ok, pid} = SyncHandleFailureWrapperFailure.start_link(test_steps)
-
-          assert_receive {:EXIT, ^pid, :error}
-        end)
-
-      assert log =~ "handle_workflow_failure/1 did not run successfully"
-
-      flow_state = StateAgent.get(test_steps.agent)
-
-      assert flow_state.execution_order == [
-               {WorkflowEx.StepError, :run},
-               {WorkflowEx.StepError, :rollback},
-               {WorkflowEx.WrapperHandleFailureError, :handle_workflow_failure}
+               {WorkflowEx.ObserverHandleFailureOk, :handle_workflow_failure}
              ]
     end
   end
