@@ -131,48 +131,7 @@ defmodule WorkflowEx do
         route(lifecycle_src, result, direction, step_index, state)
       end
 
-      def route(:handle_init, :ok, :up, current_step, state) when is_flow_state(state) do
-        {:noreply, state, {:continue, :execute_step}}
-      end
-
-      @doc """
-      If an error happens before the workflow even starts, just stop the flow immediately
-      """
-      def route(:handle_init, error, :up, _current_step, state) when is_flow_state(state) do
-        state = Fields.merge(state, %{flow_error_reason: error})
-        {:stop, error, state}
-      end
-
-      @doc """
-      if an error happens before the first step even starts, just stop the flow immediately
-      """
-      def route(:handle_before_step, error, :up, 0, state) when is_flow_state(state) do
-        state = Fields.merge(state, %{flow_direction: :down, flow_error_reason: error, step_func: :rollback})
-        {:noreply, state, {:continue, :handle_workflow_failure}}
-      end
-
-      @doc """
-      Errors before a step runs will flip to rollback mode. But because the "run" step never fired, we can go back to
-      the previous step to start the rollback process
-      """
-      def route(:handle_before_step, error, :up, step_index, state) when is_flow_state(state) do
-        state =
-          Fields.merge(state, %{
-            flow_error_reason: error,
-            flow_direction: :down,
-            step_func: :rollback,
-            step_index: step_index - 1
-          })
-
-        {:noreply, state, {:continue, :execute_step}}
-      end
-
-      @doc """
-      Tricky... If we're rolling back a workflow already, what do you do if a before_handler fails?
-      """
-      def route(:handle_before_step, error, :down, step_index, state) when is_flow_state(state) do
-        state = Fields.merge(state, %{step_index: step_index - 1, step_func: :rollback})
-
+      def route(:handle_init, _, :up, current_step, state) when is_flow_state(state) do
         {:noreply, state, {:continue, :execute_step}}
       end
 

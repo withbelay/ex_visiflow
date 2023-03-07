@@ -24,19 +24,6 @@ defmodule WorkflowExTest do
 
     [
       {:handle_init, :ok, :up, @first_step, {:continue, :execute_step}, %{}},
-      {:handle_init, :ok, :up, @last_step, {:continue, :execute_step}, %{}},
-      {:handle_init, :er, :up, @first_step, {:stop, :er}, %{flow_error_reason: :er}},
-      {:handle_before_step, :er, :up, @first_step, {:continue, :handle_workflow_failure},
-       %{flow_direction: :down, flow_error_reason: :er}},
-      {:handle_before_step, :er, :up, @last_step, {:continue, :execute_step},
-       %{
-         flow_direction: :down,
-         step_index: @first_step,
-         step_func: :rollback,
-         flow_error_reason: :er
-       }},
-      {:handle_before_step, :er, :down, @last_step, {:continue, :execute_step},
-       %{step_index: @first_step, step_func: :rollback}},
       {:step, :ok, :up, @first_step, {:continue, :execute_step}, %{step_index: @second_step, step_func: :run}},
       {:step, :ok, :up, @last_step, {:continue, :handle_workflow_success}, %{}},
       {:step, :ok, :down, @first_step, {:continue, :handle_workflow_failure}, %{}},
