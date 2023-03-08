@@ -118,67 +118,66 @@ defmodule WorkflowEx do
         route(lifecycle_src, result, direction, step_index, state)
       end
 
-      def route(:handle_init, _, :up, current_step, state) when is_flow_state(state) do
-        {:noreply, state, {:continue, :execute_step}}
-      end
-
-      @doc """
-      If the workflow is succeeding, grab the next step, and queue it up. However. If we're out of steps, the workflow is done, so run
-      handle_workflow_success.
-      """
-      def route(:step, :ok, :up, step_index, state) do
-        step_index = Fields.get(state, :step_index) + 1
-
-        case get_step(step_index) do
-          nil ->
-            {:noreply, state, {:continue, :handle_workflow_success}}
-
-          step_mod ->
-            state = Fields.merge(state, %{step_func: :run, step_index: step_index})
+      def route(src, result, direction, current_step, state) when is_atom(result) do
+        case {src, result, direction, current_step} do
+          {:handle_init, _, :up, current_step} ->
             {:noreply, state, {:continue, :execute_step}}
+
+          {:step, :ok, :up, step_index} ->
+            step_index = Fields.get(state, :step_index) + 1
+
+            case get_step(step_index) do
+              nil ->
+                {:noreply, state, {:continue, :handle_workflow_success}}
+
+              step_mod ->
+                state = Fields.merge(state, %{step_func: :run, step_index: step_index})
+                {:noreply, state, {:continue, :execute_step}}
+            end
+
+          {:step, :ok, :down, 0} ->
+            {:noreply, state, {:continue, :handle_workflow_failure}}
+
+          {:step, :ok, :down, step_index} ->
+            state = Fields.merge(state, %{step_func: :rollback, step_index: step_index - 1})
+            {:noreply, state, {:continue, :execute_step}}
+
+          {:step, :continue, :up, _step_index} ->
+            updated_state = Fields.merge(state, %{step_func: :run_continue})
+            {:noreply, updated_state}
+
+          {:step, :continue, :down, _step_index} ->
+            updated_state = Fields.merge(state, %{step_func: :rollback_continue})
+            {:noreply, updated_state}
+
+          {:step, error, :up, _step_index} ->
+            updated_state =
+              Fields.merge(state, %{flow_error_reason: error, step_func: :rollback, flow_direction: :down})
+
+            {:noreply, updated_state, {:continue, :execute_step}}
+
+          {:step, error, :down, _step_index} ->
+            {:stop, error, state}
+
+          {:rollback, error, :up, _step_index} ->
+            # step_index won't change
+            updated_state =
+              Fields.merge(state, %{flow_error_reason: error, step_func: :rollback, flow_direction: :down})
+
+            {:noreply, updated_state, {:continue, :execute_step}}
+
+          {:rollback, error, :down, _step_index} ->
+            # If workflow is already rolling back, ignore external commands to begin rollback, because it can disguise
+            # the return value of previous actions.
+            {:noreply, state}
+
+          {arg1, arg2, arg3, arg4} ->
+            raise ArgumentError, "No Route Func Matched: #{inspect([arg1, arg2, arg3, arg4])}"
         end
       end
 
-      def route(:step, :ok, :down, 0, state),
-        do: {:noreply, state, {:continue, :handle_workflow_failure}}
-
-      def route(:step, :ok, :down, step_index, state) do
-        state = Fields.merge(state, %{step_func: :rollback, step_index: step_index - 1})
-        {:noreply, state, {:continue, :execute_step}}
-      end
-
-      def route(:step, :continue, :up, _step_index, state) do
-        updated_state = Fields.merge(state, %{step_func: :run_continue})
-        {:noreply, updated_state}
-      end
-
-      def route(:step, :continue, :down, _step_index, state) do
-        updated_state = Fields.merge(state, %{step_func: :rollback_continue})
-        {:noreply, updated_state}
-      end
-
-      def route(:step, error, :up, _step_index, state) do
-        updated_state = Fields.merge(state, %{flow_error_reason: error, step_func: :rollback, flow_direction: :down})
-        {:noreply, updated_state, {:continue, :execute_step}}
-      end
-
-      def route(:step, error, :down, _step_index, state), do: {:stop, error, state}
-
-      def route(:rollback, error, :up, _step_index, state) do
-        # step_index won't change
-        updated_state = Fields.merge(state, %{flow_error_reason: error, step_func: :rollback, flow_direction: :down})
-        {:noreply, updated_state, {:continue, :execute_step}}
-      end
-
-      @doc """
-      If workflow is already rolling back, ignore external commands to begin rollback, because it can disguise the
-      return value of previous actions.
-      """
-      def route(:rollback, error, :down, _step_index, state), do: {:noreply, state}
-
-      def route(arg1, arg2, arg3, arg4, arg5) do
-        raise ArgumentError, "No Route Func Matched: #{inspect([arg1, arg2, arg3, arg4, arg5])}"
-      end
+      def route(src, result, direction, current_step, state),
+        do: raise(ArgumentError, "Result was not an atom: #{inspect([src, result, direction, current_step])}")
 
       @spec execute_step(WorkflowEx.flow_state()) :: {:ok | :continue | atom, WorkflowEx.flow_state()}
       def execute_step(state), do: do_execute_step(state, [state])
