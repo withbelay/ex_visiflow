@@ -1,4 +1,4 @@
-defmodule WorkflowEx.LifecycleHandler do
+defmodule WorkflowEx.Observer do
   @moduledoc """
   Provides default implementations for the lifecycle of the workflow, and marks it as implementing the appropriate behaviour
   """
@@ -9,7 +9,7 @@ defmodule WorkflowEx.LifecycleHandler do
   @callback handle_workflow_failure(WorkflowEx.flow_state()) :: {:ok | :error | atom(), WorkflowEx.flow_state()}
   defmacro __using__(_) do
     quote do
-      @behaviour WorkflowEx.LifecycleHandler
+      @behaviour WorkflowEx.Observer
 
       @impl true
       def handle_init(state), do: {:ok, state}

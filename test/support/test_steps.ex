@@ -24,7 +24,7 @@ defmodule WorkflowEx.TestSteps do
     ]
   )
 
-  def run_wrapper(%TestSteps{} = state, step_module, step_func, step_result) do
+  def run_observer(%TestSteps{} = state, step_module, step_func, step_result) do
     run_step(state, step_module, step_func, step_result)
   end
 
@@ -33,18 +33,32 @@ defmodule WorkflowEx.TestSteps do
     # NOTE - DO NOT CHANGE VALUES VISIFLOW OWNS - It must do that
     full_step = {step_module, step_func}
 
-    state =
-      state
+    agent_state =
+      case StateAgent.get(state.agent) do
+        %TestSteps{} = agent_state ->
+          %TestSteps{
+            __flow__: state.__flow__,
+            execution_order: agent_state.execution_order,
+            agent: agent_state.agent
+          }
+
+        _ ->
+          state
+      end
+
+    agent_state =
+      agent_state
       |> Map.update(:execution_order, [full_step], fn current ->
         current ++ List.wrap(full_step)
       end)
 
-    StateAgent.set(state.agent, state)
-    {step_result, state}
+    StateAgent.set(agent_state.agent, agent_state)
+    {step_result, agent_state}
   end
 end
 
 defmodule WorkflowEx.StepOk do
+  use WorkflowEx.Step
   alias WorkflowEx.TestSteps
   def run(%TestSteps{} = state), do: TestSteps.run_step(state, __MODULE__, :run, :ok)
   def rollback(%TestSteps{} = state), do: TestSteps.run_step(state, __MODULE__, :rollback, :ok)
@@ -98,128 +112,89 @@ defmodule WorkflowEx.AsyncStepError do
   def rollback(%TestSteps{} = state), do: TestSteps.run_step(state, __MODULE__, :rollback, :ok)
 end
 
-defmodule WorkflowEx.WrapperOk do
-  use WorkflowEx.LifecycleHandler
+defmodule WorkflowEx.ObserverOk do
+  use WorkflowEx.Observer
   alias WorkflowEx.TestSteps
 
   def handle_before_step(%TestSteps{} = state) do
-    TestSteps.run_wrapper(state, __MODULE__, :handle_before_step, :ok)
+    TestSteps.run_observer(state, __MODULE__, :handle_before_step, :ok)
   end
 
   def handle_after_step(%TestSteps{} = state) do
-    TestSteps.run_wrapper(state, __MODULE__, :handle_after_step, :ok)
+    TestSteps.run_observer(state, __MODULE__, :handle_after_step, :ok)
   end
 end
 
-defmodule WorkflowEx.WrapperOk2 do
-  use WorkflowEx.LifecycleHandler
+defmodule WorkflowEx.ObserverOk2 do
+  use WorkflowEx.Observer
   alias WorkflowEx.TestSteps
 
   def handle_before_step(%TestSteps{} = state) do
-    TestSteps.run_wrapper(state, __MODULE__, :handle_before_step, :ok)
+    TestSteps.run_observer(state, __MODULE__, :handle_before_step, :ok)
   end
 
   def handle_after_step(%TestSteps{} = state) do
-    TestSteps.run_wrapper(state, __MODULE__, :handle_after_step, :ok)
+    TestSteps.run_observer(state, __MODULE__, :handle_after_step, :ok)
   end
 end
 
-defmodule WorkflowEx.WrapperBeforeFailure do
-  use WorkflowEx.LifecycleHandler
-  alias WorkflowEx.TestSteps
-
-  def handle_before_step(%TestSteps{} = state) do
-    TestSteps.run_wrapper(state, __MODULE__, :handle_before_step, :before_error)
-  end
-end
-
-defmodule WorkflowEx.WrapperAfterFailure do
-  use WorkflowEx.LifecycleHandler
-  alias WorkflowEx.TestSteps
-
-  def handle_before_step(%TestSteps{} = state) do
-    TestSteps.run_wrapper(state, __MODULE__, :handle_before_step, :ok)
-  end
-
-  def handle_after_step(%TestSteps{} = state) do
-    TestSteps.run_wrapper(state, __MODULE__, :handle_after_step, :after_error)
-  end
-end
-
-defmodule WorkflowEx.WrapperBeforeRaise do
-  use WorkflowEx.LifecycleHandler
-  alias WorkflowEx.TestSteps
-
-  def handle_before_step(%TestSteps{} = state) do
-    TestSteps.run_wrapper(state, __MODULE__, :handle_before_step, :ok)
-    {:ok, :this_is_not_the_right_state_type}
-  end
-end
-
-defmodule WorkflowEx.WrapperAfterRaise do
-  use WorkflowEx.LifecycleHandler
-  alias WorkflowEx.TestSteps
-
-  def handle_before_step(%TestSteps{} = state) do
-    TestSteps.run_wrapper(state, __MODULE__, :handle_before_step, :ok)
-  end
-
-  def handle_after_step(%TestSteps{} = state) do
-    TestSteps.run_wrapper(state, __MODULE__, :handle_after_step, :ok)
-    {:ok, :this_is_not_the_right_state_type}
-  end
-end
-
-defmodule WorkflowEx.WrapperHandleSuccessOk do
-  use WorkflowEx.LifecycleHandler
-  alias WorkflowEx.TestSteps
-
-  def handle_workflow_success(%TestSteps{} = state) do
-    TestSteps.run_wrapper(state, __MODULE__, :handle_workflow_success, :ok)
-  end
-end
-
-defmodule WorkflowEx.WrapperHandleSuccessError do
-  use WorkflowEx.LifecycleHandler
-  alias WorkflowEx.TestSteps
-
-  def handle_workflow_success(%TestSteps{} = state) do
-    TestSteps.run_wrapper(state, __MODULE__, :handle_workflow_success, :handle_workflow_success_error)
-  end
-end
-
-defmodule WorkflowEx.WrapperHandleFailureOk do
-  use WorkflowEx.LifecycleHandler
-  alias WorkflowEx.TestSteps
-
-  def handle_workflow_failure(%TestSteps{} = state) do
-    TestSteps.run_wrapper(state, __MODULE__, :handle_workflow_failure, :ok)
-  end
-end
-
-defmodule WorkflowEx.WrapperHandleFailureError do
-  use WorkflowEx.LifecycleHandler
-  alias WorkflowEx.TestSteps
-
-  def handle_workflow_failure(%TestSteps{} = state) do
-    TestSteps.run_wrapper(state, __MODULE__, :handle_workflow_failure, :handle_workflow_failure_error)
-  end
-end
-
-defmodule WorkflowEx.WrapperInitOk do
-  use WorkflowEx.LifecycleHandler
+defmodule WorkflowEx.RaisingObserver do
+  use WorkflowEx.Observer
   alias WorkflowEx.TestSteps
 
   def handle_init(%TestSteps{} = state) do
-    TestSteps.run_wrapper(state, __MODULE__, :handle_init, :ok)
+    TestSteps.run_observer(state, __MODULE__, :handle_init, :ok)
+    raise RuntimeError, "init"
+  end
+
+  def handle_before_step(%TestSteps{} = state) do
+    TestSteps.run_observer(state, __MODULE__, :handle_before_step, :ok)
+    raise RuntimeError, "before_step"
+  end
+
+  def handle_after_step(%TestSteps{} = state) do
+    TestSteps.run_observer(state, __MODULE__, :handle_after_step, :ok)
+    raise RuntimeError, "after_step"
+  end
+
+  def handle_workflow_success(%TestSteps{} = state) do
+    TestSteps.run_observer(state, __MODULE__, :handle_after_workflow_success, :ok)
+    raise RuntimeError, "workflow_success"
   end
 end
 
-defmodule WorkflowEx.WrapperInitError do
-  use WorkflowEx.LifecycleHandler
+defmodule WorkflowEx.ObserverHandleSuccessOk do
+  use WorkflowEx.Observer
+  alias WorkflowEx.TestSteps
+
+  def handle_workflow_success(%TestSteps{} = state) do
+    TestSteps.run_observer(state, __MODULE__, :handle_workflow_success, :ok)
+  end
+end
+
+defmodule WorkflowEx.ObserverHandleSuccessError do
+  use WorkflowEx.Observer
+  alias WorkflowEx.TestSteps
+
+  def handle_workflow_success(%TestSteps{} = state) do
+    TestSteps.run_observer(state, __MODULE__, :handle_workflow_success, :handle_workflow_success_error)
+  end
+end
+
+defmodule WorkflowEx.ObserverHandleFailureOk do
+  use WorkflowEx.Observer
+  alias WorkflowEx.TestSteps
+
+  def handle_workflow_failure(%TestSteps{} = state) do
+    TestSteps.run_observer(state, __MODULE__, :handle_workflow_failure, :ok)
+  end
+end
+
+defmodule WorkflowEx.ObserverInitOk do
+  use WorkflowEx.Observer
   alias WorkflowEx.TestSteps
 
   def handle_init(%TestSteps{} = state) do
-    TestSteps.run_wrapper(state, __MODULE__, :handle_init, :handle_init_error)
+    TestSteps.run_observer(state, __MODULE__, :handle_init, :ok)
   end
 end

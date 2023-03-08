@@ -15,7 +15,7 @@ defmodule Company.Workflow do
       Company.Step2,
       Company.Step3
     ],
-    wrappers: [Company.Wrapper]
+    observers: [Company.Observer]
 end
 ```
 
@@ -25,7 +25,7 @@ This breaks the components of a complicated workflow into focused modules, and o
 
 Workflow components must all operate against a shared workflow state object. But Visiflow itself must maintain state to know what to execute next.
 
-We use Ecto, and TypedEctoSchema's wrapper to define the fields required for WorkflowEx, and it is expected that you will embed that struct into your schema as well.
+We use Ecto, and TypedEctoSchema's observer to define the fields required for WorkflowEx, and it is expected that you will embed that struct into your schema as well.
 
 ```
 defmodule Company.Workflow.State do
@@ -84,19 +84,19 @@ defmodule Company.Step2 do
 end
 ```
 
-## Wrappers
+## Observers
 
-Wrappers are functions that must be synchronous. They are intended to run code that is orthogonal to the business case of the workflow. Logging, recording state changes, and emitting status update messages are all good uses of company wrappers. They also are allowed to modify state.
+Observers are functions that must be synchronous. They are intended to run code that is orthogonal to the business case of the workflow. Logging, recording state changes, and emitting status update messages are all good uses of company observers. They also are allowed to modify state.
 
-Wrappers can run before and\or after a step's run or rollback function. The semantics are slightly different.
+Observers can run before and\or after a step's run or rollback function. The semantics are slightly different.
 
 A `handle_before_step` function must return :ok, or it will rollback the workflow without ever running the step.
 A `handle_after_step` function will run after a step, regardless of what the return status of that step was. But like a `handle_before_step` step, any return value other than {:ok, state} will rollback the workflow.
 
-Wrappers in particular are likely to want to know information about the state of the workflow's execution. They can access it with the state's __visi__ struct, which maintains this information. See below.
+Observers in particular are likely to want to know information about the state of the workflow's execution. They can access it with the state's __visi__ struct, which maintains this information. See below.
 ```
-defmodule Company.Wrapper do
-  use WorkflowEx.LifecycleHandler
+defmodule Company.Observer do
+  use WorkflowEx.Observer
 
   def handle_before_step(%Company.Workflow.State{}=state) do
     # do work intended to happen before every step
