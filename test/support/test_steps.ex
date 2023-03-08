@@ -112,20 +112,30 @@ defmodule WorkflowEx.AsyncStepError do
   def rollback(%TestSteps{} = state), do: TestSteps.run_step(state, __MODULE__, :rollback, :ok)
 end
 
-defmodule WorkflowEx.ObserverOk do
+defmodule WorkflowEx.TestObserver do
   use WorkflowEx.Observer
   alias WorkflowEx.TestSteps
 
-  def handle_before_step(%TestSteps{} = state) do
-    TestSteps.run_observer(state, __MODULE__, :handle_before_step, :ok)
-  end
+  @impl true
+  def handle_init(state), do: run_observer(:handle_init, state)
 
-  def handle_after_step(%TestSteps{} = state) do
-    TestSteps.run_observer(state, __MODULE__, :handle_after_step, :ok)
-  end
+  def handle_before_step(%TestSteps{} = state), do: run_observer(:handle_before_step, state)
+
+  def handle_after_step(%TestSteps{} = state), do: run_observer(:handle_after_step, state)
+
+  @impl true
+  def handle_start_rollback(state), do: run_observer(:handle_start_rollback, state)
+
+  @impl true
+  def handle_workflow_success(state), do: run_observer(:handle_workflow_success, state)
+
+  @impl true
+  def handle_workflow_failure(state), do: run_observer(:handle_workflow_failure, state)
+
+  defp run_observer(func, state), do: TestSteps.run_observer(state, __MODULE__, func, :ok)
 end
 
-defmodule WorkflowEx.ObserverOk2 do
+defmodule WorkflowEx.TestObserver2 do
   use WorkflowEx.Observer
   alias WorkflowEx.TestSteps
 
@@ -160,41 +170,5 @@ defmodule WorkflowEx.RaisingObserver do
   def handle_workflow_success(%TestSteps{} = state) do
     TestSteps.run_observer(state, __MODULE__, :handle_after_workflow_success, :ok)
     raise RuntimeError, "workflow_success"
-  end
-end
-
-defmodule WorkflowEx.ObserverHandleSuccessOk do
-  use WorkflowEx.Observer
-  alias WorkflowEx.TestSteps
-
-  def handle_workflow_success(%TestSteps{} = state) do
-    TestSteps.run_observer(state, __MODULE__, :handle_workflow_success, :ok)
-  end
-end
-
-defmodule WorkflowEx.ObserverHandleSuccessError do
-  use WorkflowEx.Observer
-  alias WorkflowEx.TestSteps
-
-  def handle_workflow_success(%TestSteps{} = state) do
-    TestSteps.run_observer(state, __MODULE__, :handle_workflow_success, :handle_workflow_success_error)
-  end
-end
-
-defmodule WorkflowEx.ObserverHandleFailureOk do
-  use WorkflowEx.Observer
-  alias WorkflowEx.TestSteps
-
-  def handle_workflow_failure(%TestSteps{} = state) do
-    TestSteps.run_observer(state, __MODULE__, :handle_workflow_failure, :ok)
-  end
-end
-
-defmodule WorkflowEx.ObserverInitOk do
-  use WorkflowEx.Observer
-  alias WorkflowEx.TestSteps
-
-  def handle_init(%TestSteps{} = state) do
-    TestSteps.run_observer(state, __MODULE__, :handle_init, :ok)
   end
 end
