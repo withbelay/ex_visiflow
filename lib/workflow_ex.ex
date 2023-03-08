@@ -238,4 +238,8 @@ defmodule WorkflowEx do
       defp get_step(step_index), do: Enum.at(unquote(steps), step_index)
     end
   end
+
+  def in_rollback?(state) when is_flow_state(state) do
+    Fields.get(state, :direction) == :down
+  end
 end

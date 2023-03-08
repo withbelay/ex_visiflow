@@ -335,4 +335,15 @@ defmodule WorkflowExTest do
              ]
     end
   end
+
+  test "in_rollback?" do
+    steps =
+      TestSteps.new()
+      |> Fields.merge(%{direction: :up})
+
+    refute WorkflowEx.in_rollback?(steps)
+
+    steps = Fields.merge(steps, %{direction: :down})
+    assert WorkflowEx.in_rollback?(steps)
+  end
 end
