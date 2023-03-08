@@ -51,6 +51,7 @@ defmodule WorkflowEx do
       @impl true
       def handle_continue(:execute_step, state) do
         execute_observers(:handle_before_step, state)
+
         case execute_step(state) do
           {response, state} -> route(state)
           {:stop, :invalid_return_value, state} -> {:stop, :invalid_return_value, state}
@@ -85,6 +86,7 @@ defmodule WorkflowEx do
       # If I am already rolling back, and this comes in, I need to ensure it is ignored
       def handle_info({:rollback, reason}, state) do
         Logger.info("Received message to rollback", reason: reason)
+
         Fields.merge(state, %{last_result: reason, lifecycle_src: :rollback})
         |> route()
       end
@@ -186,10 +188,12 @@ defmodule WorkflowEx do
 
       defp do_execute_step(state, args) do
         {mod, func} = get_mod_and_func(state)
+
         case apply(mod, func, args) do
           {:continue, state} ->
             state = Fields.merge(state, %{lifecycle_src: :step, last_result: :continue})
             {:continue, state}
+
           {response, state} ->
             execute_observers(:handle_after_step, state)
             state = Fields.merge(state, %{lifecycle_src: :step, last_result: response})
