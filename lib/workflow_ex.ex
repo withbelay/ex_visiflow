@@ -58,6 +58,15 @@ defmodule WorkflowEx do
         end
       end
 
+      @impl true
+      def handle_continue(:execute_start_rollback, state) do
+        execute_observers(:handle_start_rollback, state)
+
+        state
+        |> Fields.merge(%{lifecycle_src: :handle_start_rollback})
+        |> route()
+      end
+
       @doc """
       If the workflow finishes all steps successfully, it invokes the handle_workflow_success funcs of all lifecycle
       handlers
@@ -154,7 +163,10 @@ defmodule WorkflowEx do
             updated_state =
               Fields.merge(state, %{flow_error_reason: error, step_func: :rollback, flow_direction: :down})
 
-            {:noreply, updated_state, {:continue, :execute_step}}
+            {:noreply, updated_state, {:continue, :execute_start_rollback}}
+
+          {:handle_start_rollback, _, _, step_index} ->
+            {:noreply, state, {:continue, :execute_step}}
 
           {:step, error, :down, _step_index} ->
             {:stop, error, state}
@@ -206,15 +218,7 @@ defmodule WorkflowEx do
         {mod, func}
       end
 
-      def execute_observers(func, state)
-          when is_flow_state(state) and
-                 func in [
-                   :handle_init,
-                   :handle_before_step,
-                   :handle_after_step,
-                   :handle_workflow_success,
-                   :handle_workflow_failure
-                 ] do
+      def execute_observers(func, state) when is_flow_state(state) do
         Enum.each(unquote(observers), fn mod ->
           try do
             apply(mod, func, [state])
@@ -233,5 +237,9 @@ defmodule WorkflowEx do
       defp get_step(step_index) when step_index < 0, do: nil
       defp get_step(step_index), do: Enum.at(unquote(steps), step_index)
     end
+  end
+
+  def in_rollback?(state) when is_flow_state(state) do
+    Fields.get(state, :direction) == :down
   end
 end

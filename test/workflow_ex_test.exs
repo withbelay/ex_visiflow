@@ -30,13 +30,14 @@ defmodule WorkflowExTest do
       {:step, :ok, :down, @second_step, {:continue, :execute_step}, %{step_index: @first_step, step_func: :rollback}},
       {:step, :continue, :up, @first_step, :noreply, %{step_index: @first_step, step_func: :run_continue}},
       {:step, :continue, :down, @first_step, :noreply, %{step_index: @first_step, step_func: :rollback_continue}},
-      {:step, :er, :up, @first_step, {:continue, :execute_step},
+      {:step, :er, :up, @first_step, {:continue, :execute_start_rollback},
        %{
          step_index: @first_step,
          step_func: :rollback,
          flow_direction: :down,
          flow_error_reason: :er
        }},
+      {:handle_start_rollback, :er, :down, @first_step, {:continue, :execute_step}, %{}},
       {:step, :er, :down, @first_step, {:stop, :er}, %{}},
       {:rollback, :er, :up, @first_step, {:continue, :execute_step},
        %{
@@ -233,7 +234,7 @@ defmodule WorkflowExTest do
     defmodule SyncObserverSuccess do
       use WorkflowEx,
         steps: [WorkflowEx.StepOk, WorkflowEx.StepOk2],
-        observers: [WorkflowEx.ObserverOk, WorkflowEx.ObserverOk2]
+        observers: [WorkflowEx.TestObserver, WorkflowEx.TestObserver2]
     end
 
     test "observer steps are all run", %{test_steps: test_steps} do
@@ -243,16 +244,18 @@ defmodule WorkflowExTest do
       flow_state = StateAgent.get(test_steps.agent)
 
       assert flow_state.execution_order == [
-               {WorkflowEx.ObserverOk, :handle_before_step},
-               {WorkflowEx.ObserverOk2, :handle_before_step},
+               {WorkflowEx.TestObserver, :handle_init},
+               {WorkflowEx.TestObserver, :handle_before_step},
+               {WorkflowEx.TestObserver2, :handle_before_step},
                {WorkflowEx.StepOk, :run},
-               {WorkflowEx.ObserverOk, :handle_after_step},
-               {WorkflowEx.ObserverOk2, :handle_after_step},
-               {WorkflowEx.ObserverOk, :handle_before_step},
-               {WorkflowEx.ObserverOk2, :handle_before_step},
+               {WorkflowEx.TestObserver, :handle_after_step},
+               {WorkflowEx.TestObserver2, :handle_after_step},
+               {WorkflowEx.TestObserver, :handle_before_step},
+               {WorkflowEx.TestObserver2, :handle_before_step},
                {WorkflowEx.StepOk2, :run},
-               {WorkflowEx.ObserverOk, :handle_after_step},
-               {WorkflowEx.ObserverOk2, :handle_after_step}
+               {WorkflowEx.TestObserver, :handle_after_step},
+               {WorkflowEx.TestObserver2, :handle_after_step},
+               {WorkflowEx.TestObserver, :handle_workflow_success}
              ]
     end
   end
@@ -284,7 +287,7 @@ defmodule WorkflowExTest do
     defmodule AsyncSuccessWithObservers do
       use WorkflowEx,
         steps: [WorkflowEx.AsyncStepOk],
-        observers: [WorkflowEx.ObserverOk]
+        observers: [WorkflowEx.TestObserver]
     end
 
     test "the expected steps and observers all fire", %{test_steps: test_steps} do
@@ -295,31 +298,12 @@ defmodule WorkflowExTest do
       flow_state = StateAgent.get(test_steps.agent)
 
       assert flow_state.execution_order == [
-               {WorkflowEx.ObserverOk, :handle_before_step},
+               {WorkflowEx.TestObserver, :handle_init},
+               {WorkflowEx.TestObserver, :handle_before_step},
                {WorkflowEx.AsyncStepOk, :run},
                {WorkflowEx.AsyncStepOk, :run_continue},
-               {WorkflowEx.ObserverOk, :handle_after_step}
-             ]
-    end
-  end
-
-  describe "a successful workflow with a working init observer" do
-    defmodule SuccessInitObserver do
-      use WorkflowEx,
-        steps: [WorkflowEx.StepOk],
-        observers: [WorkflowEx.ObserverInitOk]
-    end
-
-    test "runs handle_init successfully", %{test_steps: test_steps} do
-      assert {:ok, pid} = SuccessInitObserver.start_link(test_steps)
-
-      assert_receive {:EXIT, ^pid, :normal}
-
-      flow_state = StateAgent.get(test_steps.agent)
-
-      assert flow_state.execution_order == [
-               {WorkflowEx.ObserverInitOk, :handle_init},
-               {WorkflowEx.StepOk, :run}
+               {WorkflowEx.TestObserver, :handle_after_step},
+               {WorkflowEx.TestObserver, :handle_workflow_success}
              ]
     end
   end
@@ -328,7 +312,7 @@ defmodule WorkflowExTest do
     defmodule SyncHandleFailureObserverSuccess do
       use WorkflowEx,
         steps: [WorkflowEx.StepError],
-        observers: [WorkflowEx.ObserverHandleFailureOk]
+        observers: [WorkflowEx.TestObserver]
     end
 
     test "runs handle_workflow_failure successfully", %{test_steps: test_steps} do
@@ -339,10 +323,27 @@ defmodule WorkflowExTest do
       flow_state = StateAgent.get(test_steps.agent)
 
       assert flow_state.execution_order == [
+               {WorkflowEx.TestObserver, :handle_init},
+               {WorkflowEx.TestObserver, :handle_before_step},
                {WorkflowEx.StepError, :run},
+               {WorkflowEx.TestObserver, :handle_after_step},
+               {WorkflowEx.TestObserver, :handle_start_rollback},
+               {WorkflowEx.TestObserver, :handle_before_step},
                {WorkflowEx.StepError, :rollback},
-               {WorkflowEx.ObserverHandleFailureOk, :handle_workflow_failure}
+               {WorkflowEx.TestObserver, :handle_after_step},
+               {WorkflowEx.TestObserver, :handle_workflow_failure}
              ]
     end
+  end
+
+  test "in_rollback?" do
+    steps =
+      TestSteps.new()
+      |> Fields.merge(%{direction: :up})
+
+    refute WorkflowEx.in_rollback?(steps)
+
+    steps = Fields.merge(steps, %{direction: :down})
+    assert WorkflowEx.in_rollback?(steps)
   end
 end
