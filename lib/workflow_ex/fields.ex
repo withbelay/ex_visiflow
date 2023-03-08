@@ -19,8 +19,8 @@ defmodule WorkflowEx.Fields do
     field(:flow_error_reason, WorkflowEx.Atom, default: :normal)
 
     # look for where step/observer might no longer be needed. Maybe just the MFA of what was just run is sufficient.
-    field(:lifecycle_src, WorkflowEx.Atom, default: nil)
-    field(:last_result, WorkflowEx.Atom, default: nil)
+    field(:lifecycle_src, WorkflowEx.Atom, default: :handle_init)
+    field(:last_result, WorkflowEx.Atom, default: :ok)
 
     # router sets these, and it's continue param determines the observer
     field(:step_index, :integer, default: 0)

@@ -41,9 +41,7 @@ defmodule WorkflowEx do
       """
       @impl true
       def handle_continue(:handle_init, state) do
-        execute_inits(state)
-        # Fix the router, and remove this line, handle_init should not impact routing anymore
-        state = Fields.merge(state, %{lifecycle_src: :handle_init, last_result: :ok})
+        execute_observers(:handle_init, state)
         route(state)
       end
 
@@ -52,22 +50,14 @@ defmodule WorkflowEx do
       1. Observers's handle_before_step funcs
       2. Step's run or rollback funcs
       3. Observers's handle_after_step funcs
-
-      Note: execute_befores can skip the step. That's probably correct on the way up. But what about on the way down?
-      Seems like we may want different rules for rollback, such that the steps always get their chance.
       https://app.clickup.com/t/860q3z5hy
       """
       @impl true
       def handle_continue(:execute_step, state) do
-        with execute_befores(state),
-             {response, state} <- execute_step(state) do
-          route(state)
-        else
-          {:stop, :invalid_return_value, state} ->
-            {:stop, :invalid_return_value, state}
-
-          other ->
-            IO.inspect(other, label: "execute_step")
+        execute_observers(:handle_before_step, state)
+        case execute_step(state) do
+          {response, state} -> route(state)
+          {:stop, :invalid_return_value, state} -> {:stop, :invalid_return_value, state}
         end
       end
 
@@ -77,7 +67,7 @@ defmodule WorkflowEx do
       """
       @impl true
       def handle_continue(:handle_workflow_success, state) do
-        execute_workflow_successes(state)
+        execute_observers(:handle_workflow_success, state)
         {:stop, :normal, state}
       end
 
@@ -87,7 +77,7 @@ defmodule WorkflowEx do
       """
       @impl true
       def handle_continue(:handle_workflow_failure, state) do
-        execute_workflow_failures(state)
+        execute_observers(:handle_workflow_failure, state)
         {:stop, Fields.get(state, :flow_error_reason), state}
       end
 
@@ -99,7 +89,6 @@ defmodule WorkflowEx do
       # If I am already rolling back, and this comes in, I need to ensure it is ignored
       def handle_info({:rollback, reason}, state) do
         Logger.info("Received message to rollback", reason: reason)
-
         Fields.merge(state, %{last_result: reason, lifecycle_src: :rollback})
         |> route()
       end
@@ -193,20 +182,6 @@ defmodule WorkflowEx do
         raise ArgumentError, "No Route Func Matched: #{inspect([arg1, arg2, arg3, arg4, arg5])}"
       end
 
-      @spec execute_inits(WorkflowEx.flow_state()) :: {:ok | atom, WorkflowEx.flow_state()}
-      def execute_inits(state), do: execute_observers(:handle_init, state)
-
-      @spec execute_befores(WorkflowEx.flow_state()) :: {:ok | atom, WorkflowEx.flow_state()}
-      def execute_befores(state), do: execute_observers(:handle_before_step, state)
-
-      @spec execute_workflow_successes(WorkflowEx.flow_state()) :: {:ok | atom, WorkflowEx.flow_state()}
-      def execute_workflow_successes(state),
-        do: execute_observers(:handle_workflow_success, state)
-
-      @spec execute_workflow_failures(WorkflowEx.flow_state()) :: {:ok | atom, WorkflowEx.flow_state()}
-      def execute_workflow_failures(state),
-        do: execute_observers(:handle_workflow_failure, state)
-
       @spec execute_step(WorkflowEx.flow_state()) :: {:ok | :continue | atom, WorkflowEx.flow_state()}
       def execute_step(state), do: do_execute_step(state, [state])
 
@@ -215,15 +190,14 @@ defmodule WorkflowEx do
 
       defp do_execute_step(state, args) do
         {mod, func} = get_mod_and_func(state)
-
-        with {response, state} when response != :continue <- apply(mod, func, args),
-             execute_observers(:handle_after_step, state) do
-          state = Fields.merge(state, %{lifecycle_src: :step, last_result: response})
-          {response, state}
-        else
+        case apply(mod, func, args) do
           {:continue, state} ->
             state = Fields.merge(state, %{lifecycle_src: :step, last_result: :continue})
             {:continue, state}
+          {response, state} ->
+            execute_observers(:handle_after_step, state)
+            state = Fields.merge(state, %{lifecycle_src: :step, last_result: response})
+            {response, state}
         end
       end
 
