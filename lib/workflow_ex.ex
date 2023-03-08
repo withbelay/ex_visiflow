@@ -1,8 +1,4 @@
 defmodule WorkflowEx do
-  @moduledoc """
-
-  """
-
   @typedoc """
   The fields required for a workflow state to function with Visiflow.
   """
