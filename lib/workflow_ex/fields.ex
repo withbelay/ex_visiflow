@@ -14,12 +14,13 @@ defmodule WorkflowEx.Fields do
 
   defguard is_flow_state(input) when is_map(input) and is_map_key(input, :__flow__)
 
+  @primary_key false
   typed_embedded_schema do
     field(:flow_direction, WorkflowEx.Atom, default: :up)
     field(:flow_error_reason, WorkflowEx.Atom, default: :normal)
 
     # look for where step/observer might no longer be needed. Maybe just the MFA of what was just run is sufficient.
-    field(:lifecycle_src, WorkflowEx.Atom, default: :handle_init)
+    field(:lifecycle_src, WorkflowEx.Atom)
     field(:last_result, WorkflowEx.Atom, default: :ok)
 
     # router sets these, and it's continue param determines the observer
@@ -28,8 +29,6 @@ defmodule WorkflowEx.Fields do
   end
 
   def changeset(changeset, params) do
-    params = Map.merge(%{step_index: 0, flow_error_reason: :normal, flow_direction: :up}, params)
-
     cast(
       changeset,
       params,
@@ -38,7 +37,10 @@ defmodule WorkflowEx.Fields do
   end
 
   def merge(state, dest) when is_flow_state(state) do
-    updated_flow = Map.merge(state.__flow__, dest)
+    updated_flow =
+      changeset(state.__flow__, dest)
+      |> apply_action!(:update)
+
     %{state | __flow__: updated_flow}
   end
 
