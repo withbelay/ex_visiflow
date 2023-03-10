@@ -15,6 +15,7 @@ defmodule WorkflowEx do
       use GenServer, restart: :transient
       import WorkflowEx.Fields, only: [is_flow_state: 1]
       require Logger
+      @before_compile unquote(__MODULE__)
 
       @spec start_link(WorkflowEx.flow_state()) :: GenServer.on_start()
       def start_link(state) when is_flow_state(state) do
@@ -106,16 +107,6 @@ defmodule WorkflowEx do
 
         Fields.merge(state, %{last_result: reason, lifecycle_src: :rollback})
         |> route()
-      end
-
-      @doc """
-      Async steps need to listen for something from the outside world, this func routes those messages to the step's
-      listener
-      """
-      @impl true
-      def handle_info(message, state) do
-        {_response, state} = execute_step(state, message)
-        route(state)
       end
 
       @doc """
@@ -246,6 +237,21 @@ defmodule WorkflowEx do
       # Enum.at(-1) gets the last element in the list, which is not what I want.
       defp get_step(step_index) when step_index < 0, do: nil
       defp get_step(step_index), do: Enum.at(unquote(steps), step_index)
+    end
+  end
+
+  defmacro __before_compile__(_env) do
+    quote location: :keep do
+      @doc """
+      Async steps need to listen for something from the outside world, this func routes those messages to the step's
+      listener. It's in a before_compile callback, because it catches all handle_info's. So if a workflow wants to
+      register its own, they would get swallowed
+      """
+      @impl true
+      def handle_info(message, state) do
+        {_response, state} = execute_step(state, message)
+        route(state)
+      end
     end
   end
 
