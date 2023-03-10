@@ -10,25 +10,26 @@ defmodule WorkflowEx.Observer do
   @callback handle_workflow_failure(WorkflowEx.flow_state()) :: any()
   defmacro __using__(_) do
     quote do
+      import WorkflowEx.Fields, only: [is_flow_state: 1]
       @behaviour WorkflowEx.Observer
 
       @impl true
-      def handle_init(state), do: nil
+      def handle_init(state) when is_flow_state(state), do: nil
 
       @impl true
-      def handle_before_step(state), do: nil
+      def handle_before_step(state) when is_flow_state(state), do: nil
 
       @impl true
-      def handle_after_step(state), do: nil
+      def handle_after_step(state) when is_flow_state(state), do: nil
 
       @impl true
-      def handle_start_rollback(state), do: nil
+      def handle_start_rollback(state) when is_flow_state(state), do: nil
 
       @impl true
-      def handle_workflow_success(state), do: nil
+      def handle_workflow_success(state) when is_flow_state(state), do: nil
 
       @impl true
-      def handle_workflow_failure(state), do: nil
+      def handle_workflow_failure(state) when is_flow_state(state), do: nil
 
       defoverridable handle_init: 1,
                      handle_before_step: 1,

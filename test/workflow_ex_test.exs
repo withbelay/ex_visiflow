@@ -264,7 +264,7 @@ defmodule WorkflowExTest do
              ]
     end
 
-    test "rollback can be initiated", %{test_steps: test_steps} do
+    test "flow can be started directly in rollback", %{test_steps: test_steps} do
       test_steps =
         Fields.merge(test_steps, %{
           flow_direction: :up,
