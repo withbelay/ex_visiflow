@@ -8,7 +8,7 @@ defmodule WorkflowEx.Step do
   @callback rollback(WorkflowEx.flow_state()) :: {:ok | :continue | :error | atom(), WorkflowEx.flow_state()}
   @callback rollback_continue(WorkflowEx.flow_state(), atom()) ::
               {:ok | :continue | :error | atom(), WorkflowEx.flow_state()}
-  def __using__(_) do
+  defmacro __using__(_) do
     quote do
       import WorkflowEx.Fields, only: [is_flow_state: 1]
       @behaviour WorkflowEx.Step
