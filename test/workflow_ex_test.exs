@@ -23,6 +23,7 @@ defmodule WorkflowExTest do
     @second_step 1
 
     [
+      {nil, :ok, :up, @first_step, {:ok, :handle_init}, %{}},
       {:handle_init, :ok, :up, @first_step, {:continue, :execute_step}, %{}},
       {:step, :ok, :up, @first_step, {:continue, :execute_step}, %{step_index: @second_step, step_func: :run}},
       {:step, :ok, :up, @last_step, {:continue, :handle_workflow_success}, %{}},
@@ -71,6 +72,10 @@ defmodule WorkflowExTest do
           case @expected_response do
             {:continue, step} ->
               assert {:noreply, updated_state, {:continue, ^step}} = JustStart.route(test_steps)
+              updated_state
+
+            {:ok, :handle_init} ->
+              assert {:ok, updated_state, {:continue, :handle_init}} = JustStart.route(test_steps)
               updated_state
 
             {:stop, error} ->
@@ -258,6 +263,37 @@ defmodule WorkflowExTest do
                {WorkflowEx.TestObserver, :handle_workflow_success}
              ]
     end
+
+    test "rollback can be initiated", %{test_steps: test_steps} do
+      test_steps =
+        Fields.merge(test_steps, %{
+          flow_direction: :up,
+          life_cycle_src: :step,
+          last_result: :ok,
+          step_index: 1,
+          step_func: :run
+        })
+        |> WorkflowEx.rollback(:because_reasons)
+
+      assert {:ok, pid} = SyncObserverSuccess.start_link(test_steps)
+
+      assert_receive {:EXIT, ^pid, :because_reasons}
+      flow_state = StateAgent.get(test_steps.agent)
+
+      assert flow_state.execution_order == [
+               {WorkflowEx.TestObserver, :handle_before_step},
+               {WorkflowEx.TestObserver2, :handle_before_step},
+               {WorkflowEx.StepOk2, :rollback},
+               {WorkflowEx.TestObserver, :handle_after_step},
+               {WorkflowEx.TestObserver2, :handle_after_step},
+               {WorkflowEx.TestObserver, :handle_before_step},
+               {WorkflowEx.TestObserver2, :handle_before_step},
+               {WorkflowEx.StepOk, :rollback},
+               {WorkflowEx.TestObserver, :handle_after_step},
+               {WorkflowEx.TestObserver2, :handle_after_step},
+               {WorkflowEx.TestObserver, :handle_workflow_failure}
+             ]
+    end
   end
 
   describe "a synchronous workflow with observer steps that raise can't stop the workflow" do
@@ -337,13 +373,27 @@ defmodule WorkflowExTest do
   end
 
   test "in_rollback?" do
-    steps =
+    state =
       TestSteps.new()
       |> Fields.merge(%{direction: :up})
 
-    refute WorkflowEx.in_rollback?(steps)
+    refute WorkflowEx.in_rollback?(state)
 
-    steps = Fields.merge(steps, %{direction: :down})
-    assert WorkflowEx.in_rollback?(steps)
+    state = Fields.merge(state, %{flow_direction: :down})
+    assert WorkflowEx.in_rollback?(state)
+  end
+
+  test "rollback\1 ensures that any state that comes in leaves in rollback mode" do
+    state =
+      TestSteps.new()
+      |> Fields.merge(%{direction: :up})
+      |> WorkflowEx.rollback(:because_i_said_so)
+
+    assert Fields.take(state, ~w[flow_direction step_func last_result lifecycle_src]a) == %{
+             flow_direction: :up,
+             step_func: :rollback,
+             last_result: :because_i_said_so,
+             lifecycle_src: :rollback
+           }
   end
 end

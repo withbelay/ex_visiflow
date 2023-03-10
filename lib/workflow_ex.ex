@@ -21,13 +21,18 @@ defmodule WorkflowEx do
         GenServer.start_link(__MODULE__, state)
       end
 
+      defoverridable start_link: 1
+
       @doc """
       Starts the workflow by 'continuing' to the handle_init callback, which invokes all lifecycle handlers that
       implement handle_init
       """
       @impl true
       def init(state) when is_flow_state(state) do
-        {:ok, state, {:continue, :handle_init}}
+        case route(state) do
+          {:noreply, state, next} -> {:ok, state, next}
+          otherwise -> otherwise
+        end
       end
 
       def init(_), do: {:stop, :missing_flow_fields}
@@ -38,7 +43,10 @@ defmodule WorkflowEx do
       @impl true
       def handle_continue(:handle_init, state) do
         execute_observers(:handle_init, state)
-        route(state)
+
+        state
+        |> Fields.merge(%{lifecycle_src: :handle_init})
+        |> route()
       end
 
       @doc """
@@ -129,6 +137,9 @@ defmodule WorkflowEx do
 
       def route(src, result, direction, current_step, state) when is_atom(result) do
         case {src, result, direction, current_step} do
+          {nil, _, :up, current_step} ->
+            {:ok, state, {:continue, :handle_init}}
+
           {:handle_init, _, :up, current_step} ->
             {:noreply, state, {:continue, :execute_step}}
 
@@ -179,8 +190,7 @@ defmodule WorkflowEx do
             {:noreply, updated_state, {:continue, :execute_step}}
 
           {:rollback, error, :down, _step_index} ->
-            # If workflow is already rolling back, ignore external commands to begin rollback, because it can disguise
-            # the return value of previous actions.
+            # if a rollback step fails, we're in a bad way
             {:noreply, state}
 
           {arg1, arg2, arg3, arg4} ->
@@ -240,6 +250,10 @@ defmodule WorkflowEx do
   end
 
   def in_rollback?(state) when is_flow_state(state) do
-    Fields.get(state, :direction) == :down
+    Fields.get(state, :flow_direction) == :down
+  end
+
+  def rollback(state, reason) when is_flow_state(state) do
+    Fields.merge(state, %{last_result: reason, lifecycle_src: :rollback, step_func: :rollback})
   end
 end
