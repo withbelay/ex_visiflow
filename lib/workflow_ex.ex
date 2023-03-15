@@ -104,6 +104,7 @@ defmodule WorkflowEx do
       # If I am already rolling back, and this comes in, I need to ensure it is ignored
       def handle_info({:rollback, reason}, state) do
         Logger.info("Received message to rollback", reason: reason)
+        execute_observers(:handle_start_rollback, state)
 
         Fields.merge(state, %{last_result: reason, lifecycle_src: :rollback})
         |> route()
