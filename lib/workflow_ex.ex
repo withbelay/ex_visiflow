@@ -208,8 +208,8 @@ defmodule WorkflowEx do
             {:continue, state}
 
           {response, state} ->
-            execute_observers(:handle_after_step, state)
             state = Fields.merge(state, %{lifecycle_src: :step, last_result: response})
+            execute_observers(:handle_after_step, state)
             {response, state}
         end
       end
