@@ -2,7 +2,7 @@ defmodule WorkflowEx do
   @typedoc """
   The fields required for a workflow state to function with Visiflow.
   """
-  @type flow_state() :: %{__flow__: WorkflowEx.Fields.t()}
+  @type flow_state() :: %{:__flow__ => WorkflowEx.Fields.t(), optional(any) => any}
 
   alias WorkflowEx.Fields
   import WorkflowEx.Fields, only: [is_flow_state: 1]
