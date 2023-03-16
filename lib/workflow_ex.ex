@@ -2,7 +2,7 @@ defmodule WorkflowEx do
   @typedoc """
   The fields required for a workflow state to function with Visiflow.
   """
-  @type flow_state() :: %{__flow__: WorkflowEx.Fields.t()}
+  @type flow_state() :: %{:__flow__ => WorkflowEx.Fields.t(), optional(any) => any}
 
   alias WorkflowEx.Fields
   import WorkflowEx.Fields, only: [is_flow_state: 1]
@@ -104,6 +104,7 @@ defmodule WorkflowEx do
       # If I am already rolling back, and this comes in, I need to ensure it is ignored
       def handle_info({:rollback, reason}, state) do
         Logger.info("Received message to rollback", reason: reason)
+        execute_observers(:handle_start_rollback, state)
 
         Fields.merge(state, %{last_result: reason, lifecycle_src: :rollback})
         |> route()
@@ -207,8 +208,8 @@ defmodule WorkflowEx do
             {:continue, state}
 
           {response, state} ->
-            execute_observers(:handle_after_step, state)
             state = Fields.merge(state, %{lifecycle_src: :step, last_result: response})
+            execute_observers(:handle_after_step, state)
             {response, state}
         end
       end
