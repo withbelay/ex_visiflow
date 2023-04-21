@@ -263,7 +263,6 @@ defmodule WorkflowEx do
       # Enum.at(-1) gets the last element in the list, which is not what I want.
       defp get_step(step_index) when step_index < 0, do: nil
       defp get_step(step_index), do: Enum.at(unquote(steps), step_index)
-
     end
   end
 
