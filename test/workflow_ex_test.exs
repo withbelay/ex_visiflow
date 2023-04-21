@@ -4,7 +4,6 @@ defmodule WorkflowExTest do
 
   alias WorkflowEx.TestSteps
   alias WorkflowEx.Fields
-  alias ExUnit.CaptureLog
 
   doctest WorkflowEx
 

@@ -24,12 +24,20 @@ defmodule WorkflowEx do
 
       defoverridable start_link: 1
 
+      defp get_span_ctx(%{otlp_span_ctx: otlp_span_ctx}), do: otlp_span_ctx
+      defp get_span_ctx(_), do: nil
+
       @doc """
       Starts the workflow by 'continuing' to the handle_init callback, which invokes all lifecycle handlers that
       implement handle_init
       """
       @impl true
       def init(state) when is_flow_state(state) do
+        if span_ctx = get_span_ctx(state) do
+          OpenTelemetry.Tracer.set_current_span(span_ctx)
+          Process.flag(:trap_exit, true)
+        end
+
         case route(state) do
           {:noreply, state, next} -> {:ok, state, next}
           otherwise -> otherwise
@@ -37,6 +45,23 @@ defmodule WorkflowEx do
       end
 
       def init(_), do: {:stop, :missing_flow_fields}
+
+      @impl true
+      def terminate(:normal, state) do
+        if span_ctx = get_span_ctx(state) do
+          OpenTelemetry.Tracer.end_span(span_ctx)
+        end
+      end
+
+      def terminate(reason, state) do
+        Logger.info("Workflow terminated with reason: #{inspect(reason)},\nstate: #{inspect(state)}")
+
+        if span_ctx = get_span_ctx(state) do
+          OpenTelemetry.Span.set_status(span_ctx, :error)
+          OpenTelemetry.Span.add_event(span_ctx, "work failed", error: inspect(reason))
+          OpenTelemetry.Span.end_span(span_ctx)
+        end
+      end
 
       @doc """
       Runs the handle_init funcs of all lifecycle handlers

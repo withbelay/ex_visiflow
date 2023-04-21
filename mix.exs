@@ -29,6 +29,7 @@ defmodule WorkflowEx.MixProject do
       {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
       {:ecto, "~> 3.9"},
       {:mix_test_watch, "~> 1.0", only: [:dev, :test], runtime: false},
+      {:opentelemetry_api, "~> 1.2"},
       {:typed_ecto_schema, "~> 0.4.1"}
     ]
   end
