@@ -12,8 +12,11 @@ defmodule WorkflowEx.Observers.Messager do
   @impl true
   def handle_after_step(state) do
     case WorkflowEx.Fields.get(state, :last_result) do
-      :ok -> Messagable.send_message(state, :after_step)
-      _ -> :ok
+      :ok ->
+        Messagable.send_message(state, :after_step)
+
+      _ ->
+        :ok
     end
   end
 
