@@ -2,14 +2,15 @@ defmodule WorkflowExTest do
   use ExUnit.Case
   use AssertEventually, timeout: 50, interval: 5
 
-  alias WorkflowEx.TestSteps
+  alias WorkflowEx.TestState
   alias WorkflowEx.Fields
 
   doctest WorkflowEx
+  @moduletag :capture_log
 
   setup do
     Process.flag(:trap_exit, true)
-    {:ok, %{test_steps: TestSteps.new()}}
+    {:ok, %{test_steps: TestState.new()}}
   end
 
   defmodule JustStart do
@@ -58,7 +59,7 @@ defmodule WorkflowExTest do
 
       test "src: #{src}, result: #{result}, dir: #{direction}, step: #{if current_step == @first_step, do: "first", else: "last"} should return #{inspect(expected_response)}}" do
         test_steps =
-          TestSteps.new!(%{
+          TestState.new!(%{
             __flow__: %{
               lifecycle_src: @src,
               last_result: @result,
@@ -373,7 +374,7 @@ defmodule WorkflowExTest do
 
   test "in_rollback?" do
     state =
-      TestSteps.new()
+      TestState.new()
       |> Fields.merge(%{direction: :up})
 
     refute WorkflowEx.in_rollback?(state)
@@ -384,7 +385,7 @@ defmodule WorkflowExTest do
 
   test "rollback\1 ensures that any state that comes in leaves in rollback mode" do
     state =
-      TestSteps.new()
+      TestState.new()
       |> Fields.merge(%{direction: :up})
       |> WorkflowEx.rollback(:because_i_said_so)
 
