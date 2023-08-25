@@ -1,6 +1,14 @@
 # WorkflowEx
 ![CI Status](https://github.com/withbelay/ex_visiflow/actions/workflows/ci.yml/badge.svg)
 
+# Todo
+
+- [ ] OpenTelemetry as an observer
+- [ ] Track state changes as an observer
+- [ ] Logging as an observer
+- [ ] Bring the workflow launcher over
+
+
 WorkflowEx is a macro that runs workflows of a very specific character. They process work linearly, and when any error is encountered, they then work backwards in that same manner.
 
 Workflow steps can be synchronous or asynchronous. Workflow steps that are asynchronous will return :continue, and then expected to subscribe to whatever events are needed to complete their task.

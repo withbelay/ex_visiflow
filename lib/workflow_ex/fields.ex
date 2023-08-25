@@ -12,6 +12,8 @@ defmodule WorkflowEx.Fields do
   use TypedEctoSchema
   import Ecto.Changeset
 
+  @spec is_flow_state(any) ::
+          {:__block__ | {:., [], [:andalso | :erlang, ...]}, [], [{:= | {any, any, any}, list, [...]}, ...]}
   defguard is_flow_state(input) when is_map(input) and is_map_key(input, :__flow__)
 
   @primary_key false
