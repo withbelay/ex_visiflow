@@ -2,6 +2,8 @@ defmodule WorkflowExTest do
   use ExUnit.Case
   use AssertEventually, timeout: 50, interval: 5
 
+  import Mox
+
   alias WorkflowEx.TestState
   alias WorkflowEx.Fields
 
@@ -322,14 +324,29 @@ defmodule WorkflowExTest do
   describe "an asynchronous, successful workflow with after steps" do
     defmodule AsyncSuccessWithObservers do
       use WorkflowEx,
+        on_exit: MockExitHandler,
         steps: [WorkflowEx.AsyncStepOk],
         observers: [WorkflowEx.TestObserver]
     end
 
+    setup :set_mox_from_context
+
     test "the expected steps and observers all fire", %{test_steps: test_steps} do
+      test_pid = self()
+
+      MockExitHandler
+      |> expect(:on_exit, fn :normal = reason, state ->
+        send(test_pid, {:on_exit, reason, state})
+        :result_from_exit_handler
+      end)
+
       assert {:ok, pid} = AsyncSuccessWithObservers.start_link(test_steps)
       send(pid, WorkflowEx.AsyncStepOk)
-      assert_receive {:EXIT, ^pid, :normal}
+
+      assert_receive {:on_exit, :normal, state}
+      assert state.__flow__.flow_error_reason == :normal
+
+      assert_receive {:EXIT, ^pid, :result_from_exit_handler}
 
       flow_state = StateAgent.get(test_steps.agent)
 
@@ -347,14 +364,28 @@ defmodule WorkflowExTest do
   describe "a synchronous, failing workflow with a working handle_workflow_failure observer" do
     defmodule SyncHandleFailureObserverSuccess do
       use WorkflowEx,
+        on_exit: MockExitHandler,
         steps: [WorkflowEx.StepError],
         observers: [WorkflowEx.TestObserver]
     end
 
+    setup :set_mox_from_context
+
     test "runs handle_workflow_failure successfully", %{test_steps: test_steps} do
+      test_pid = self()
+
+      MockExitHandler
+      |> expect(:on_exit, fn :error = reason, state ->
+        send(test_pid, {:on_exit, reason, state})
+        :result_from_exit_handler
+      end)
+
       assert {:ok, pid} = SyncHandleFailureObserverSuccess.start_link(test_steps)
 
-      assert_receive {:EXIT, ^pid, :error}
+      assert_receive {:on_exit, :error, state}
+      assert state.__flow__.flow_error_reason == :error
+
+      assert_receive {:EXIT, ^pid, :result_from_exit_handler}
 
       flow_state = StateAgent.get(test_steps.agent)
 

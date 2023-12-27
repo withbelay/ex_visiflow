@@ -10,6 +10,7 @@ defmodule WorkflowEx do
   defmacro __using__(opts) do
     steps = Keyword.fetch!(opts, :steps)
     observers = Keyword.get(opts, :observers, [])
+    on_exit_handler = Keyword.get(opts, :on_exit, WorkflowEx.OnExitHandler)
 
     quote location: :keep do
       use GenServer, restart: :transient
@@ -108,7 +109,8 @@ defmodule WorkflowEx do
       @impl true
       def handle_continue(:handle_workflow_success, state) do
         execute_observers(:handle_workflow_success, state)
-        {:stop, :normal, state}
+        handler = unquote(on_exit_handler)
+        {:stop, unquote(on_exit_handler).on_exit(Fields.get(state, :flow_error_reason), state), state}
       end
 
       @doc """
@@ -118,7 +120,8 @@ defmodule WorkflowEx do
       @impl true
       def handle_continue(:handle_workflow_failure, state) do
         execute_observers(:handle_workflow_failure, state)
-        {:stop, Fields.get(state, :flow_error_reason), state}
+        handler = unquote(on_exit_handler)
+        {:stop, unquote(on_exit_handler).on_exit(Fields.get(state, :flow_error_reason), state), state}
       end
 
       @doc """
