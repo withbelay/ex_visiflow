@@ -109,7 +109,6 @@ defmodule WorkflowEx do
       @impl true
       def handle_continue(:handle_workflow_success, state) do
         execute_observers(:handle_workflow_success, state)
-        handler = unquote(on_exit_handler)
         {:stop, unquote(on_exit_handler).on_exit(Fields.get(state, :flow_error_reason), state), state}
       end
 
@@ -120,7 +119,6 @@ defmodule WorkflowEx do
       @impl true
       def handle_continue(:handle_workflow_failure, state) do
         execute_observers(:handle_workflow_failure, state)
-        handler = unquote(on_exit_handler)
         {:stop, unquote(on_exit_handler).on_exit(Fields.get(state, :flow_error_reason), state), state}
       end
 

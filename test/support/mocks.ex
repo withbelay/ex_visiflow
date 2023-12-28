@@ -1,1 +1,1 @@
-Mox.defmock(MockExitHandler, for: WorkflowEx.OnExitHandler)
+Mox.defmock(MockExitHandler, for: WorkflowEx.OnExitHandler.Behaviour)
