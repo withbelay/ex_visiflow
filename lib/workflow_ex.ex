@@ -23,7 +23,13 @@ defmodule WorkflowEx do
         GenServer.start_link(__MODULE__, state)
       end
 
+      @spec start(WorkflowEx.flow_state()) :: GenServer.on_start()
+      def start(state) when is_flow_state(state) do
+        GenServer.start(__MODULE__, state)
+      end
+
       defoverridable start_link: 1
+      defoverridable start: 1
 
       defp get_span_ctx(%{otlp_span_ctx: otlp_span_ctx}), do: otlp_span_ctx
       defp get_span_ctx(_), do: nil
