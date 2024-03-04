@@ -3,7 +3,7 @@
 
 # Todo
 
-- [ ] OpenTelemetry as an observer
+- [x] OpenTelemetry as an observer
 - [ ] Track state changes as an observer
 - [ ] Logging as an observer
 - [ ] Bring the workflow launcher over

@@ -30,7 +30,6 @@ defmodule WorkflowEx.MixProject do
       {:ecto, "~> 3.9"},
       {:mix_test_watch, "~> 1.0", only: [:dev, :test], runtime: false},
       {:mox, "~> 1.1.0", only: :test},
-      {:opentelemetry_api, "~> 1.2"},
       {:typed_ecto_schema, "~> 0.4.1"}
     ]
   end
